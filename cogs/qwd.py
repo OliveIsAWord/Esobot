@@ -487,7 +487,7 @@ class Qwd(commands.Cog, name="QWD"):
                 n = int(word2)
             except ValueError:
                 return
-            s = word1.removeprefix("!mja") * n
+            s = "mja" + word1.removeprefix("!mja") * n
             if not 0 < len(s) < 2000:
                 return
             await message.channel.send(s)
