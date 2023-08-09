@@ -479,6 +479,19 @@ class Qwd(commands.Cog, name="QWD"):
         else:
             await ctx.send("Successfully set your location.")
 
+    @commands.Cog.listener
+    async def on_message(self, message):
+        if message.guild == self.qwd and message.startswith("!mja"):
+            word1, word2 = message.split(" ", 1)
+            try:
+                n = int(word2)
+            except ValueError:
+                return
+            s = word1.removeprefix("!mja") * n
+            if not 0 < len(s) < 2000:
+                return
+            await message.channel.send(s)
+
 
 async def setup(bot):
     await bot.add_cog(Qwd(bot))
