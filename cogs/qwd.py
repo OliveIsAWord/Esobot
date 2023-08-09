@@ -481,14 +481,14 @@ class Qwd(commands.Cog, name="QWD"):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.guild == self.qwd and message.startswith("!mja"):
-            word1, word2 = message.split(" ", 1)
+        if message.guild == self.qwd and message.content.startswith("!mja"):
+            word1, word2 = message.content.split(" ", 1)
             try:
-                n = int(word2)
+                n = int(word2.strip())
             except ValueError:
                 return
             s = "mja" + word1.removeprefix("!mja") * n
-            if not 0 < len(s) < 2000:
+            if len(s) >= 2000:
                 return
             await message.channel.send(s)
 
