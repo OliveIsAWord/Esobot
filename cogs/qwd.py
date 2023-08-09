@@ -479,7 +479,7 @@ class Qwd(commands.Cog, name="QWD"):
         else:
             await ctx.send("Successfully set your location.")
 
-    @commands.Cog.listener
+    @commands.Cog.listener()
     async def on_message(self, message):
         if message.guild == self.qwd and message.startswith("!mja"):
             word1, word2 = message.split(" ", 1)
