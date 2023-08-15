@@ -8,7 +8,7 @@ from constants import colors, paths, channels
 from utils import make_embed, load_json, save_json, show_error
 
 
-d = requests.get("https://gist.githubusercontent.com/Vexs/629488c4bb4126ad2a9909309ed6bd71/raw/416403f7080d1b353d8517dfef5acec9aafda6c3/emoji_map.json").json()
+d = requests.get("https://gist.githubusercontent.com/Vexs/629488c4bb4126ad2a9909309ed6bd71/raw/edd5473221f42ea0f8b9de16545b4b853bf11140/emoji_map.json").json()
 unicode = Automaton()
 for emoji in d.values():
     unicode.add_word(emoji, emoji)
