@@ -175,6 +175,8 @@ async def accept_leaderboard(ctx, definition, *, compat=None):
         raise commands.BadArgument(f"```ansi{e}```")
     if compat and not lb.main.unit.is_compatible_with(compat.main.unit):
         raise commands.BadArgument(f"The unit '{lb.main.unit:P}' is incompatible with the unit '{compat.main.unit:P}'.")
+    if len(str(lb)) > 4000:
+        raise commands.BadArgument("Definition is too long.")
     return lb
 
 def rank_enumerate(xs, *, key, reverse):
