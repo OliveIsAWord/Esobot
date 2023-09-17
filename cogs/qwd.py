@@ -29,7 +29,7 @@ class UnitFormatter:
         self.radices = radices
 
     def format(self, q):
-        q = q.to(self.unit)
+        q = round(q.to(self.unit), self.prec)
         s = ""
         for radix in self.radices:
             digit, q = divmod(q, 1*radix)
