@@ -7,7 +7,7 @@ from tokenize import TokenError
 import discord
 from PIL import Image
 from discord.ext import commands
-from pint import UnitRegistry, UndefinedUnitError, DimensionalityError
+from pint import UnitRegistry, UndefinedUnitError, DimensionalityError, formatting
 from typing import Optional, Union
 
 from utils import save_json, load_json, get_pronouns, EmbedPaginator
@@ -16,7 +16,13 @@ from constants.paths import QWD_SAVES, QWD_LEADERBOARDS, QWD_LB_ALIASES, VORE_ST
 
 ureg = UnitRegistry(autoconvert_offset_to_baseunit=True)
 ureg.separate_format_defaults = True
-ureg.default_format = "~P"
+
+@formatting.register_unit_format("Pc")
+def format_pretty_cool(unit, registry, **options):
+    opts = {**formatting._FORMATS["P"], "division_fmt": " / ", **options}
+    return formatting.formatter(unit.items(), **opts)
+
+ureg.default_format = "~Pc"
 
 class ParseError(ValueError):
     pass
