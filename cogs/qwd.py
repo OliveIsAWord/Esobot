@@ -17,10 +17,10 @@ from constants.paths import QWD_SAVES, QWD_LEADERBOARDS, QWD_LB_ALIASES, VORE_ST
 ureg = UnitRegistry(autoconvert_offset_to_baseunit=True)
 ureg.separate_format_defaults = True
 
-@formatting.register_unit_format("Pc")
 def format_pretty_cool(unit, registry, **options):
     opts = {**formatting._FORMATS["P"], "division_fmt": " / ", **options}
     return formatting.formatter(unit.items(), **opts)
+formatting._FORMATTERS["Pc"] = format_pretty_cool
 
 ureg.default_format = "~Pc"
 
