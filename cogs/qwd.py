@@ -298,7 +298,7 @@ class Qwd(commands.Cog, name="QWD"):
         value = self.data_of(member or ctx.author, lb.name)
         p = get_pronouns(member)
         if not value:
-            return await ctx.send(f'{p.they_do_not()} have a `{lb.name}` value set.')
+            return await ctx.send(f'{p.they_do_not()} have an entry in `{lb.name}`.')
         await ctx.send(embed=discord.Embed(title=f"{member.global_name or member.name}'s `{lb.name}`", description=lb.format(value), colour=discord.Colour(0x75ffe3)))
 
     @leaderboard.command()
