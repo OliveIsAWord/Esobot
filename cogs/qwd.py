@@ -274,11 +274,11 @@ class Qwd(commands.Cog, name="QWD"):
     def data_of(self, member, key):
         return self.data(member).get(self.true_key(key))
 
-    def lb_members(self, lb):
+    def lb_members(self, lb, *, reverse=False):
         return rank_enumerate(
             ((value, member) for member in self.qwd.members if (value := self.data_of(member, lb.name)) and (lb.name != "height" or "razetime" not in (member.global_name, member.name))),
             key=lambda x: lb.ureq(x[0]),
-            reverse=not lb.asc,
+            reverse=not lb.asc != reverse,
         )
 
     @commands.group(invoke_without_command=True, aliases=["lb"])
@@ -411,7 +411,7 @@ class Qwd(commands.Cog, name="QWD"):
     @leaderboard.command()
     async def graph(self, ctx, lb: LeaderboardConv):
         """Graph a (somewhat humorous) ranking of people's values in a leaderboard such as `height`."""
-        people = [(lb.ureq(value).m, user, await user.avatar.read()) for _, (value, user) in self.lb_members(lb)]
+        people = [(lb.ureq(value).m, user, await user.avatar.read()) for _, (value, user) in self.lb_members(lb, reverse=True)]
         if not people:
             return await ctx.send("A leaderboard must have at least one person on it to use `graph`.")
         image = await asyncio.to_thread(render_graph, people)
