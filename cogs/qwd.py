@@ -71,8 +71,7 @@ class Leaderboard:
             raise commands.BadArgument("What are you doing?")
         return q
 
-    def format(self, string):
-        q = self.ureq(string)
+    def format(self, q):
         s = self.main.format(q)
         if self.others:
             s += f" ({', '.join([formatter.format(q) for formatter in self.others])})"
@@ -271,13 +270,18 @@ class Qwd(commands.Cog, name="QWD"):
     def data(self, member):
         return self.qwdies[str(member.id)].setdefault("lb", {})
 
-    def data_of(self, member, key):
-        return self.data(member).get(self.true_key(key))
+    def ureq_of(self, member, lb):
+        d = self.data(member).get(self.true_key(lb.name))
+        if not d:
+            return None
+        if isinstance(d, str):
+            return lb.ureq(d)
+        return parse_leaderboard(d["form"]).ureq(d["value"])
 
     def lb_members(self, lb, *, reverse=False):
         return rank_enumerate(
-            ((value, member) for member in self.qwd.members if (value := self.data_of(member, lb.name)) and (lb.name != "height" or "razetime" not in (member.global_name, member.name))),
-            key=lambda x: lb.ureq(x[0]),
+            ((value, member) for member in self.qwd.members if (value := self.ureq_of(member, lb)) and (lb.name != "height" or "razetime" not in (member.global_name, member.name))),
+            key=lambda x: x[0],
             reverse=lb.asc == reverse,
         )
 
@@ -295,7 +299,7 @@ class Qwd(commands.Cog, name="QWD"):
     @leaderboard.command()
     async def get(self, ctx, lb: LeaderboardConv, *, member: discord.Member):
         """Get a specific person's number on a leaderboard."""
-        value = self.data_of(member or ctx.author, lb.name)
+        value = self.ureq_of(member or ctx.author, lb)
         p = get_pronouns(member)
         if not value:
             return await ctx.send(f'{p.they_do_not()} have an entry in `{lb.name}`.')
@@ -313,14 +317,14 @@ class Qwd(commands.Cog, name="QWD"):
             else:
                 return await ctx.send("Nothing to do.")
         try:
-            nice = lb.format(value)
+            nice = lb.ureq(value)
         except (TokenError, UndefinedUnitError):
             return await ctx.send("I couldn't parse that as a sensible value.")
         except DimensionalityError:
             return await ctx.send(f"Unit mismatch: your unit is incompatible with the leaderboard's unit '{lb.main.unit:P}'.")
-        data[name] = value
+        data[name] = {"value": value, "form": str(lb)}
         save_json(QWD_SAVES, self.qwdies)
-        await ctx.send(f"Okay, your value will display as {nice}.")
+        await ctx.send(f"Okay, your value will display as {lb.format(nice)}.")
 
     @leaderboard.command(aliases=["new", "add", "make"])
     async def create(self, ctx, name="", *, definition=""):
@@ -411,7 +415,7 @@ class Qwd(commands.Cog, name="QWD"):
     @leaderboard.command()
     async def graph(self, ctx, lb: LeaderboardConv):
         """Graph a (somewhat humorous) ranking of people's values in a leaderboard such as `height`."""
-        people = [(lb.ureq(value).m, user, await user.avatar.read()) for _, (value, user) in self.lb_members(lb, reverse=True)]
+        people = [(value.m, user, await user.avatar.read()) for _, (value, user) in self.lb_members(lb, reverse=True)]
         if not people:
             return await ctx.send("A leaderboard must have at least one person on it to use `graph`.")
         image = await asyncio.to_thread(render_graph, people)
