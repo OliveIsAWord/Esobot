@@ -278,7 +278,7 @@ class Qwd(commands.Cog, name="QWD"):
         return rank_enumerate(
             ((value, member) for member in self.qwd.members if (value := self.data_of(member, lb.name)) and (lb.name != "height" or "razetime" not in (member.global_name, member.name))),
             key=lambda x: lb.ureq(x[0]),
-            reverse=not lb.asc != reverse,
+            reverse=lb.asc == reverse,
         )
 
     @commands.group(invoke_without_command=True, aliases=["lb"])
