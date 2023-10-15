@@ -275,7 +275,7 @@ class Qwd(commands.Cog, name="QWD"):
 
     def ureq_of(self, member, lb):
         d = self.data(member).get(self.true_key(lb.name))
-        if not d:
+        if d is None:
             return None
         if isinstance(d, str):
             return lb.ureq(d)
@@ -283,7 +283,7 @@ class Qwd(commands.Cog, name="QWD"):
 
     def lb_members(self, lb, *, reverse=False):
         return rank_enumerate(
-            ((value, member) for member in self.qwd.members if (value := self.ureq_of(member, lb)) and (lb.name != "height" or "razetime" not in (member.global_name, member.name))),
+            ((value, member) for member in self.qwd.members if (value := self.ureq_of(member, lb)) is not None),
             key=lambda x: x[0],
             reverse=lb.asc == reverse,
         )
