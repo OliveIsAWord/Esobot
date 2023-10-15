@@ -49,8 +49,8 @@ class UnitFormatter:
         return f"UnitFormatter({self.unit!r}, {self.prec!r}, {self.compact!r}, {self.radices!r})"
 
     def __str__(self):
-        s = "".join([f"{unit:P} + " for unit in self.radices])
-        s += f"{'~'*self.compact}{self.unit:P}"
+        s = "".join([f"{unit:Pc} + " for unit in self.radices])
+        s += f"{'~'*self.compact}{self.unit:Pc}"
         if self.prec:
             s += f".{self.prec}"
         return s
@@ -83,6 +83,9 @@ class Leaderboard:
     def __str__(self):
         return "asc "*self.asc + ", ".join(str(f) for f in [self.main, *self.others])
 
+    def lean(self):
+        return f"{self.main.unit:Pc}"
+
 class LeaderboardParser:
     def __init__(self, s):
         self.s = s
@@ -101,7 +104,7 @@ class LeaderboardParser:
 
     def assert_compatible(self, x, y):
         if not x.is_compatible_with(y):
-            self.panic(f"units '{x:P}' and '{y:P}' are incompatible")
+            self.panic(f"units '{x:Pc}' and '{y:Pc}' are incompatible")
 
     def unit(self):
         n = ""
@@ -179,7 +182,7 @@ async def accept_leaderboard(ctx, definition, *, compat=None):
     except ParseError as e:
         raise commands.BadArgument(f"```ansi{e}```")
     if compat and not lb.main.unit.is_compatible_with(compat.main.unit):
-        raise commands.BadArgument(f"The unit '{lb.main.unit:P}' is incompatible with the unit '{compat.main.unit:P}'.")
+        raise commands.BadArgument(f"The unit '{lb.main.unit:Pc}' is incompatible with the unit '{compat.main.unit:Pc}'.")
     if len(str(lb)) > 4000:
         raise commands.BadArgument("Definition is too long.")
     return lb
@@ -321,8 +324,8 @@ class Qwd(commands.Cog, name="QWD"):
         except (TokenError, UndefinedUnitError):
             return await ctx.send("I couldn't parse that as a sensible value.")
         except DimensionalityError:
-            return await ctx.send(f"Unit mismatch: your unit is incompatible with the leaderboard's unit '{lb.main.unit:P}'.")
-        data[name] = {"value": value, "form": str(lb)}
+            return await ctx.send(f"Unit mismatch: your unit is incompatible with the leaderboard's unit '{lb.main.unit:Pc}'.")
+        data[name] = {"value": value, "form": lb.lean()}
         save_json(QWD_SAVES, self.qwdies)
         await ctx.send(f"Okay, your value will display as {lb.format(nice)}.")
 
