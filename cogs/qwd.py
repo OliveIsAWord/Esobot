@@ -11,7 +11,7 @@ from pint import UnitRegistry, UndefinedUnitError, DimensionalityError, formatti
 from typing import Optional, Union
 
 from utils import save_json, load_json, get_pronouns, EmbedPaginator
-from constants.paths import QWD_SAVES, QWD_LEADERBOARDS, QWD_LB_ALIASES, VORE_STORE
+from constants.paths import QWD_SAVES, QWD_LEADERBOARDS, QWD_LB_ALIASES
 
 
 ureg = UnitRegistry(autoconvert_offset_to_baseunit=True)
@@ -233,7 +233,6 @@ class Qwd(commands.Cog, name="QWD"):
         self.bot = bot
         self.qwdies = defaultdict(dict, load_json(QWD_SAVES))
         self.leaderboards = {k: parse_leaderboard(v) for k, v in load_json(QWD_LEADERBOARDS).items()}
-        self.vore = load_json(VORE_STORE)
         self.aliases = load_json(QWD_LB_ALIASES)
         self.qwd = None
 
@@ -423,25 +422,6 @@ class Qwd(commands.Cog, name="QWD"):
             return await ctx.send("A leaderboard must have at least one person on it to use `graph`.")
         image = await asyncio.to_thread(render_graph, people)
         await ctx.send(file=discord.File(image, filename='height_graph.png'))
-
-    def last_vore(self):
-        return discord.utils.format_dt(discord.utils.snowflake_time(self.vore[-1]), "R")
-
-    @commands.group(invoke_without_command=True, aliases=["voredays", "dayssincevore"])
-    async def vore(self, ctx):
-        """See when the last vore moment was."""
-        if not self.vore:
-            return await ctx.send("forever")
-        await ctx.send(self.last_vore())
-
-    @vore.command(aliases=["0"])
-    @commands.guild_only()
-    async def update(self, ctx):
-        """Mark that a vore moment has occurred."""
-        before = self.last_vore()
-        self.vore.append(ctx.message.id)
-        save_json(VORE_STORE, self.vore)
-        await ctx.send(f"{before} -> 0. Now I'm hungry!")
 
     @commands.group(invoke_without_command=True, aliases=["temp"])
     async def weather(self, ctx, *, target: Union[discord.Member, str] = ""):
