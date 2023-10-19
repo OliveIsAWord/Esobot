@@ -1,6 +1,6 @@
 import os
 
-DEV = True
+DEV = False
 
 NAME = "Esobot"
 VERSION = "1.6.0" + ("-dev" * DEV)
