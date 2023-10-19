@@ -178,7 +178,7 @@ class CodeGuessing(commands.Cog, name="Code guessing"):
         """See what anonymous users are connected to a channel."""
         if not (conns := self.channel_conns[ctx.channel]):
             return await ctx.send("Nobody here!")
-        await ctx.send(", ".join(conn.name for conn in conns if conn.name))
+        await ctx.send(", ".join(self.conns[conn.target].name for conn in conns))
 
     @commands.Cog.listener()
     async def on_message(self, message):
