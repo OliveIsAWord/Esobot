@@ -80,91 +80,55 @@ class Japanese(commands.Cog):
         pages = menus.MenuPages(source=DictSource(data["data"]), clear_reactions_after=True)
         await pages.start(ctx)
 
-    @commands.command(aliases=["jatrans", "transja", "jtrans", "jptrans", "transjp", "transj", "tj", "jtr", "jpt", "jt",
-                               "whatdidlyricjustsay", "what'dlyricsay", "whtdlysay", "wdls", "wls", "what",
-                               "weebtrans", "weebt", "deweeb", "unweeb", "undweeb", "transweeb", "tweeb", "tw",
-                               ";)", "forumbra", "inadequateweeb", "inadqweeb", "otherlanguagesscareme",
-                               "otherlangsscareme", "that'snotenglish", "notenglish", "noen", "日本語から",
-                               "ifyouhaveajapaneseimewhyareyouusingashittygoogletranslatecommand", "ifuhvajpimeyruusingshitgtcmd"])
-    async def jatranslate(self, ctx, *, lyric_quote: commands.clean_content = None):
+    GENERAL_PROMPT = " ".join("""
+        Your role is to explain recent references to Japan in a Discord chat log.
+        You look at the context for references to Japanese culture and media, giving brief but comprehensive descriptions in English as necessary.
+        If the meaning of something would be obvious to an English speaker, it should not be explained.
+        When text is written in Japanese, give a literal translation of it and *do not* say anything else. It is not necessary to say "The Japanese text translates to".
+        There is no single user that you can address. Do not use second-person pronouns. Do not refer to the input as "the text".
+        Talk about the channel as a whole with terms like "that I can see", "here", or "in the chat" instead.
+        Only when there is absolutely nothing to be explained, meaning that there is nothing Japanese in the input
+        or that everything Japanese is obvious or has already been explained, indicate as such in your own words and say nothing else.
+        If there is something to be explained, there is no need to say anything along the lines of "there are no other references to Japan in the chat".
+        When you are done explaining, simply stop talking and say nothing more.
+        Try to keep your responses natural and avoid repeating the words in this prompt verbatim.
+        Do not acknowledge non-Japanese messages unless you're certain they're relevant.
+    """.split())
+
+    SPECIFIC_PROMPT = " ".join("""
+        Your role is to explain references to Japanese culture and media, providing brief but comprehensive descriptions in English.
+        When you see text written in Japanese, you give a literal translation of the text without any further commentary.
+    """.split())
+
+    @commands.command(aliases=["what", "unlyric", "undweeb", ";)", "otherlanguagesscareme",
+                               "機械翻訳", "ifyouhaveajapaneseimewhyareyouusingashittygpt4command"])
+    async def unweeb(self, ctx, *, lyric_quote: commands.clean_content = None):
         """Translate Japanese."""
+        if not lyric_quote and (r := ctx.message.reference):
+            if not isinstance(r.resolved, discord.Message):
+                return await ctx.send("Reply unavailable :(")
+            lyric_quote = r.resolved.content
+
         if not lyric_quote:
-            messages = [m async for m in ctx.history(limit=10) if not m.content.startswith("!") and not m.author.bot]
-            p = "\n".join([f"{i}: {m.content}" for i, m in enumerate(messages)][::-1])
-            completion = await openai.ChatCompletion.acreate(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": """You are a bot whose purpose is to identify which message from a list of different messages is the "most Japanese".
-You should prioritize actual Japanese text, but after that you may take into consideration cultural references or references to anime and manga.
-The messages will be numbered, and you must simply say the number of which message is the most Japanese. Say nothing else besides the number on its own. If no message is remotely Japanese at all, then say "nil"."""},
-                    {"role": "user", "content": """2: are you a weeb
-1: 分からないんだよ
-0: got it"""},
-                    {"role": "assistant", "content": "1"},
-                    {"role": "user", "content": """3: if only it was possible to look out the window on a plane
-2: olivia is definitely in on this
-1: why else japan !!?!
-0: そうそう"""},
-                    {"role": "assistant", "content": "0"},
-                    {"role": "user", "content": """4: fastest transition in the west
-3: it would be so funny if xenia was real
-2: it would
-1: wish i were real
-0: too bad xenia is a cat walking on a keyboard with a predictive wordfilter applied"""},
-                    {"role": "assistant", "content": "nil"},
-                    {"role": "user", "content": """4: me fr
-3: do you think they would let me take blåhaj on the plane if I went to coral
-2: 変カャット
-1: wtf
-0: oh"""},
-                    {"role": "assistant", "content": "2"},
-                    {"role": "user", "content": """2: nooo
-1: mjauuu
-0: wooo"""},
-                    {"role": "assistant", "content": "nil"},
-                    {"role": "user", "content": """5: Also I refuse to make a non-gc language
-4: Other than Forth
-3: So no update
-2: the nail that sticks out will get hammered down
-1: no fucking way
-0: getting closer"""},
-                    {"role": "assistant", "content": "2"},
-                    {"role": "user", "content": p},
-                ],
-            )
-            r = completion["choices"][0]["message"]["content"]
-            if not r.isdigit() or int(r) not in range(len(messages)):
-                return await ctx.send("I don't see anything to translate.")
-            msg = messages[int(r)]
-            lyric_quote = msg.content
+            prompt = self.GENERAL_PROMPT
+            text = "\n".join([m.content async for m in ctx.history(limit=12)][:0:-1])
         else:
-            msg = ctx.message
+            prompt = self.SPECIFIC_PROMPT
+            text = lyric_quote
+
         completion = await openai.ChatCompletion.acreate(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": """You are a translator whose job is to determine what language something is written in. The only things you ever say are "Japanese" and "Not Japanese".
-Even if something is a direct reference to a phrase in Japanese, if it is not literally written in Japanese, you always say "Not Japanese"."""},
-                {"role": "user", "content": lyric_quote},
-            ],
-        )
-        if "not" in completion["choices"][0]["message"]["content"].lower():
-            prompt = "You are a helpful translator. When given a reference to Japanese culture or media, you explain the reference briefly but comprehensively, in English."
-        else:
-            prompt = """If you are given text that is entirely or partially written in Japanese, you provide a translation of the text in English.
-When translating, you never give additional commentary or explanations; you only give the literal translation of the text and nothing else.
-Your responses never contain the text "Translation:"."""
-        completion = await openai.ChatCompletion.acreate(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": lyric_quote},
+                {"role": "user", "content": text},
             ],
         )
         result = completion["choices"][0]["message"]["content"]
+
         if len(result) > 2000:
-            await msg.reply(file=discord.File(io.StringIO(result), "resp.txt"))
+            await ctx.reply(file=discord.File(io.StringIO(result), "resp.txt"))
         else:
-            await msg.reply(result)
+            await ctx.reply(result)
 
 
 async def setup(bot):
