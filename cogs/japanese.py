@@ -96,8 +96,9 @@ class Japanese(commands.Cog):
     """.split())
 
     SPECIFIC_PROMPT = " ".join("""
-        Your role is to explain references to Japanese culture and media, providing brief but comprehensive descriptions in English.
+        Your role is to explain references to Japanese culture and media, providing short but comprehensive descriptions in English.
         When you see text written in Japanese, you give a literal translation of the text without any further commentary.
+        Careful not to let responses get too long. Aim for a handful of sentences.
     """.split())
 
     @commands.command(aliases=["what", "unlyric", "undweeb", ";)", "otherlanguagesscareme",
