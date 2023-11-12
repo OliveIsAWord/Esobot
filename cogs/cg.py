@@ -70,7 +70,7 @@ class CodeGuessing(commands.Cog, name="Code guessing"):
         if isinstance(target, discord.User):
             p = get_pronouns(target)
             if target.bot:
-                return await ctx.send("{p.are()} a bot.")
+                return await ctx.send(f"{p.are()} a bot.")
             async with self.bot.session.get(f"{CANON_URL}/users/{target.id}/settings") as resp:
                 dms = discord.utils.find(lambda x: x["name"] == "dms", await resp.json())["value"]
             if target in self.conns or not dms:
