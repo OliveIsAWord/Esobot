@@ -173,8 +173,8 @@ class Games(commands.Cog):
         if not 5 <= words <= 75:
             return await ctx.send("Use between 5 and 75 words.")
         if not self.words:
-            async with self.bot.session.get("https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-usa-no-swears-medium.txt") as resp:
-                self.words = (await resp.text()).splitlines()
+            async with self.bot.session.get("https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/languages/english.json") as resp:
+                self.words = (await resp.json())["words"]
         prompt = " ".join(random.choices(self.words, k=words))
         await self.run_race(ctx, prompt, lambda s: s.lower() == prompt)
 
