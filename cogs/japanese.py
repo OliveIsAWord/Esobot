@@ -4,12 +4,15 @@ import pykakasi
 import discord
 import asyncio
 import random
-import openai
 import io
 
-from utils import show_error
 from discord.ext import commands, menus
+from openai import AsyncOpenAI
 
+from utils import show_error
+
+
+openai = AsyncOpenAI()
 
 def format_jp_entry(entry):
     try:
@@ -102,30 +105,46 @@ class Japanese(commands.Cog):
         Responses should be 4 sentences long at most and preferably only one sentence.
     """.split())
 
+    @staticmethod
+    def _urls_of_message(message):
+        attached = [a.url for a in message.attachments if "image" in a.content_type]
+        embedded = [e.url for e in message.embeds if e.type == "image"]
+        return attached + embedded
+
+    @staticmethod
+    def _convert_message(content, urls):
+        images = [{"type": "image_url", "image_url": {"url": url}} for url in urls]
+        return {"role": "user", "content": [{"type": "text", "text": content}, *images]}
+
     @commands.command(aliases=["what", "unlyric", "undweeb", ";)", "otherlanguagesscareme",
                                "機械翻訳", "ifyouhaveajapaneseimewhyareyouusingashittygpt4command"])
-    async def unweeb(self, ctx, *, lyric_quote: commands.clean_content = None):
+    async def unweeb(self, ctx, *, lyric_quote: commands.clean_content = ""):
         """Translate Japanese."""
-        if not lyric_quote and (r := ctx.message.reference):
+        quote = lyric_quote
+        urls = self._urls_of_message(ctx.message)
+
+        if not quote and not urls and (r := ctx.message.reference):
             if not isinstance(r.resolved, discord.Message):
                 return await ctx.send("Reply unavailable :(")
-            lyric_quote = r.resolved.content
+            quote = r.resolved.content
+            urls = self._urls_of_message(r.resolved)
 
-        if not lyric_quote:
+        if not quote and not urls:
             prompt = self.GENERAL_PROMPT
-            text = "\n".join([m.content async for m in ctx.history(limit=12)][:0:-1])
+            messages = [self._convert_message(m.content, self._urls_of_message(m)) async for m in ctx.history(limit=12)][:0:-1]
         else:
             prompt = self.SPECIFIC_PROMPT
-            text = lyric_quote
+            messages = [self._convert_message(quote, urls)]
 
-        completion = await openai.ChatCompletion.acreate(
-            model="gpt-4-1106-preview",
+        completion = await openai.chat.completions.create(
+            model="gpt-4-vision-preview",
             messages=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": text},
+                *messages,
             ],
+            max_tokens=512,
         )
-        result = completion["choices"][0]["message"]["content"]
+        result = completion.choices[0].message.content
 
         if len(result) > 2000:
             await ctx.reply(file=discord.File(io.StringIO(result), "resp.txt"))
