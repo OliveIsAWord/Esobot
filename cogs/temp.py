@@ -139,7 +139,8 @@ class Temporary(commands.Cog):
                         "Ꮒ": "BIG CHAIR", "Ꮵ": "FANCY CHAIR",
                         "ᖹ": "HORIZONTALLY-FLIPPED SYLLABIC CHAIR", "ᖺ": "SYLLABIC CHAIR", "ᖻ": "TURNED SYLLABIC CHAIR",
                         "ᚴ": "VERTICALLY-FLIPPED NORDIC CHAIR",
-                        "ℎ": "ITALIC CHAIR", "ℏ": "ITALIC CHAIR WITH STROKE"
+                        "ℎ": "ITALIC CHAIR", "ℏ": "ITALIC CHAIR WITH STROKE",
+                        "ₕ": "SUBSCRIPT CHAIR", "ʰ": "SUPERSCRIPT CHAIR",
                     }.get(c, "NOT A CHAIR")
                 lines.append(f"`\\U{ord(c):>08x}`: {title} **\N{EM DASH}** {c}")
             await message.channel.send("\n".join(lines))
