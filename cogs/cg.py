@@ -169,7 +169,7 @@ class CodeGuessing(commands.Cog, name="Code guessing"):
             j = await resp.json()
         if j["result"] == "missing":
             return await ctx.send("There's nobody called that.")
-        user = await self.bot.get_user(j["user"])
+        user = self.bot.get_user(j["user"])
         await ctx.send(f"That's {user}.")
 
     @commands.guild_only()
