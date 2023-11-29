@@ -120,21 +120,21 @@ class Japanese(commands.Cog):
                                "機械翻訳", "ifyouhaveajapaneseimewhyareyouusingashittygpt4command"])
     async def unweeb(self, ctx, *, lyric_quote: commands.clean_content = ""):
         """Translate Japanese."""
-        quote = lyric_quote
-        urls = self._urls_of_message(ctx.message)
+        prompt = self.SPECIFIC_PROMPT
+        messages = []
 
-        if not quote and not urls and (r := ctx.message.reference):
+        if r := ctx.message.reference:
             if not isinstance(r.resolved, discord.Message):
                 return await ctx.send("Reply unavailable :(")
-            quote = r.resolved.content
-            urls = self._urls_of_message(r.resolved)
+            messages.append(self._convert_message(r.resolved.content, self._urls_of_message(r.resolved)))
 
-        if not quote and not urls:
+        urls = self._urls_of_message(ctx.message)
+        if lyric_quote or urls:
+            messages.append(self._convert_message(lyric_quote, urls))
+
+        if not messages:
             prompt = self.GENERAL_PROMPT
             messages = [self._convert_message(m.content, self._urls_of_message(m)) async for m in ctx.history(limit=12)][:0:-1]
-        else:
-            prompt = self.SPECIFIC_PROMPT
-            messages = [self._convert_message(quote, urls)]
 
         completion = await openai.chat.completions.create(
             model="gpt-4-vision-preview",
