@@ -550,7 +550,7 @@ class Qwd(commands.Cog, name="QWD"):
                 embed.add_field(name="Best players", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
 
             async with self.bot.db.execute("""
-                SELECT *, RANK() OVER (ORDER BY correct * 1.0 / total DESC) as rank
+                SELECT *, RANK() OVER (ORDER BY correct * 1.0 / total) as rank
                 FROM (
                     SELECT actual, COUNT(*) as total, SUM(actual != guessed) as correct FROM HwdykGames
                     GROUP BY actual
