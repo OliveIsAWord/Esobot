@@ -105,7 +105,6 @@ async def on_command_error(ctx, exc):
             description = f"Unknown user input exception."
         description += f"\n\nRun `{COMMAND_PREFIX}help {command_name}` to view the required arguments."
     elif isinstance(exc, commands.CommandNotFound):
-        # description = f"Could not find command `{ctx.invoked_with.split()[0]}`."
         return
     elif isinstance(exc, commands.CheckFailure):
         if isinstance(exc, commands.NoPrivateMessage):
@@ -167,7 +166,7 @@ async def setup():
 
     with open("schema.sql") as f:
         script = f.read()
-    #await db.executescript(script)
+    await db.executescript(script)
     await db.commit()
 
     bot.db = db

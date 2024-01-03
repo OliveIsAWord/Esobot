@@ -52,3 +52,9 @@ CREATE TABLE IF NOT EXISTS LeaderboardData (
     PRIMARY KEY (user_id, leaderboard),
     FOREIGN KEY (leaderboard) REFERENCES Leaderboards(name) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS HwdykGames (
+    player_id INTEGER NOT NULL,
+    guessed INTEGER NOT NULL,
+    actual INTEGER NOT NULL
+);

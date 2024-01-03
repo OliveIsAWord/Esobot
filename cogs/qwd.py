@@ -1,4 +1,6 @@
 import math
+import datetime
+import random
 import asyncio
 from io import BytesIO
 from collections import defaultdict
@@ -10,7 +12,7 @@ from discord.ext import commands
 from pint import UnitRegistry, UndefinedUnitError, DimensionalityError, formatting
 from typing import Optional, Union
 
-from utils import get_pronouns, EmbedPaginator
+from utils import get_pronouns, EmbedPaginator, make_embed
 
 
 ureg = UnitRegistry(autoconvert_offset_to_baseunit=True)
@@ -473,6 +475,111 @@ class Qwd(commands.Cog, name="QWD"):
             if len(s) >= 2000:
                 return
             await message.channel.send(s)
+
+    @commands.group(invoke_without_command=True)
+    async def hwdyk(self, ctx):
+        """How well do you know your friends?"""
+        pass
+
+    @commands.guild_only()
+    @hwdyk.command(aliases=["msg"])
+    async def message(self, ctx):
+        """Pick a random message. If you can guess who sent it, you win!"""
+
+        base = datetime.datetime(year=2023, month=7, day=25)
+        year = 2023
+        channel = self.qwd.get_channel(1133026989637382149 if random.random() < .909 else 1133027144512049223)
+
+        # this doesn't uniformly pick a random message: it strongly prefers messages sent after longer pauses
+        # however this is a trade-off for making it incredibly cheap to grab a message because we don't have to spam history calls or store any data
+        t = base + datetime.timedelta(milliseconds=random.randint(0, int((datetime.datetime.utcnow() - base).total_seconds() * 1000)))
+        async for message in channel.history(before=t):
+            if message.content and len(message.content) >= 30 and message.author in ctx.guild.members:
+                break
+
+        embed = make_embed(
+            description=message.content,
+            footer_text="#??? • ??/??/????",
+        )
+        embed.set_author(name="❓  ???")
+        if message.attachments:
+            attachment = message.attachments[0]
+            if attachment.filename.endswith((".png", ".jpg", ".jpeg")):
+                embed.set_image(url=attachment.url)
+
+        bot_msg = await ctx.reply("Who sent this message?", embed=embed)
+
+        while True:
+            r = await self.bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author)
+            try:
+                member = await commands.MemberConverter().convert(ctx, r.content)
+            except commands.BadArgument:
+                pass
+            else:
+                break
+
+        # insert into stat db
+        await self.bot.db.execute("INSERT INTO HwdykGames (player_id, actual, guessed) VALUES (?, ?, ?)", (ctx.author.id, member.id, message.author.id))
+        await self.bot.db.commit()
+
+        # reveal info
+        embed.set_footer(text="#" + message.channel.name)
+        embed.timestamp = message.edited_at or message.created_at
+        embed.set_author(name=message.author.global_name or message.author.name, icon_url=message.author.display_avatar)
+        await bot_msg.edit(embed=embed)
+
+        if member == message.author:
+            await bot_msg.reply("You were correct!")
+        else:
+            await bot_msg.reply("Too bad. Good luck with the next time!")
+
+    @hwdyk.command()
+    async def stats(self, ctx, member: discord.Member = None):
+        embed = discord.Embed(title="`hwdyk msg` statistics", colour=discord.Colour(0x6b32a8))
+
+        if not member:
+            async with self.bot.db.execute("""
+                SELECT *, RANK() OVER (ORDER BY correct * 1.0 / total DESC) as rank
+                FROM (
+                    SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames
+                    GROUP BY player_id
+                    HAVING total > 10
+                )
+                ORDER BY rank LIMIT 5
+            """) as cur:
+                embed.add_field(name="Best players", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
+
+            async with self.bot.db.execute("""
+                SELECT *, RANK() OVER (ORDER BY correct * 1.0 / total DESC) as rank
+                FROM (
+                    SELECT actual, COUNT(*) as total, SUM(actual != guessed) as correct FROM HwdykGames
+                    GROUP BY actual
+                    HAVING total > 10
+                )
+                ORDER BY rank LIMIT 5
+            """) as cur:
+                embed.add_field(name="Hardest to guess", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
+
+            # async with self.bot.db.execute("""
+            #     SELECT *, RANK() OVER (ORDER BY total * 1.0 / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.actual = T2.actual) / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.guess = T2.guess) DESC) as rank
+            #     FROM (
+            #         SELECT actual, guessed, COUNT(*) as total FROM HwdykGames GROUP BY actual, guessed
+            #     ) AS T1
+            #     WHERE total > 10
+            #     ORDER BY rank LIMIT 5
+            # """) as cur:
+            #     embed.add_field(name="Most confused", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
+
+        else:
+            embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+
+            async with self.bot.db.execute("SELECT COUNT(*), SUM(actual = guessed) FROM HwdykGames WHERE player_id = ?", (member.id,)) as cur:
+                total, correct = await cur.fetchone()
+
+            embed.add_field(name="Messages played", value=str(total))
+            embed.add_field(name="Correct answers", value=f"{correct} ({correct/total*100:.2f}%)")
+
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):

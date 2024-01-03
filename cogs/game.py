@@ -1,13 +1,10 @@
 import asyncio
-import datetime
 import random
 import os
 import re
 
 import discord
 from discord.ext import commands
-
-from utils import make_embed
 
 
 def is_idea_message(content):
@@ -52,75 +49,6 @@ class Games(commands.Cog):
                     idea += idea_extra
             await ctx.send(f"{msg.jump_url}\n{msg.content}", allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False))
             break
-
-
-    @commands.group(invoke_without_command=True)
-    async def hwdyk(self, ctx):
-        """How well do you know your friends?"""
-        pass
-
-    @commands.guild_only()
-    @hwdyk.command(aliases=["msg"])
-    async def message(self, ctx):
-        """Pick a random message. If you can guess who sent it, you win!"""
-
-        if ctx.guild.name == "QVDD":
-            base = datetime.datetime(year=2023, month=7, day=25)
-            year = 2023
-            channel = ctx.guild.get_channel(1133026989637382149 if random.random() < .909 else 1133027144512049223)
-        else:
-            base = datetime.datetime(year=2020, month=1, day=1)
-            # hardcoded list of "discussion" channels: esolang*, mathematics, off-topic, programming, *-games
-            channel = self.bot.get_channel(random.choice([
-                348671457808613388,
-                348702485994668033,
-                348702065062838273,
-                351171126594109455,
-                348702212110680064,
-                412764872816852994,
-                415981720286789634,
-                445375649511768074,
-                348697452712427522,
-            ]))
-
-        # this doesn't uniformly pick a random message: it strongly prefers messages sent after longer pauses
-        # however this is a trade-off for making it incredibly cheap to grab a message because we don't have to spam history calls or store any data
-        t = base + datetime.timedelta(milliseconds=random.randint(0, int((datetime.datetime.utcnow() - base).total_seconds() * 1000)))
-        async for message in channel.history(before=t):
-            if message.content and len(message.content) >= 20 and message.author in ctx.guild.members:
-                break
-
-        embed = make_embed(
-            description=message.content,
-            footer_text="#??? • ??/??/????",
-        )
-        embed.set_author(name="❓  ???")
-        if message.attachments:
-            filename = message.attachments[0].filename
-            if filename.endswith(".png") or filename.endswith(".jpg") or filename.endswith(".jpeg"):
-                embed.set_image(url=message.attachments[0].url)
-
-        bot_msg = await ctx.reply("Who sent this message?", embed=embed)
-
-        while True:
-            r = await self.bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author)
-            try:
-                member = await commands.MemberConverter().convert(ctx, r.content)
-            except commands.BadArgument:
-                pass
-            else:
-                break
-
-        # reveal info
-        embed.set_footer(text="#" + message.channel.name)
-        embed.timestamp = message.edited_at or message.created_at
-        embed.set_author(name=message.author.global_name or message.author.name, icon_url=message.author.display_avatar)
-        await bot_msg.edit(embed=embed)
-
-        if member == message.author:
-            await r.reply("You were correct!")
-        else:
-            await r.reply("Too bad. Good luck with the next time!")
 
     async def run_race(self, ctx, prompt, is_valid):
         await ctx.send(f"Race begins in 5 seconds. Get ready!")
