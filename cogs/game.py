@@ -7,8 +7,7 @@ import re
 import discord
 from discord.ext import commands
 
-from utils import make_embed, load_json, save_json
-from constants.paths import IDEA_SAVES
+from utils import make_embed
 
 
 def is_idea_message(content):
@@ -20,28 +19,27 @@ class Games(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.words = None
-        self.ideas = load_json(IDEA_SAVES)
 
     @commands.Cog.listener("on_message")
     async def on_message_idea(self, message):
         if not message.author.bot and message.guild and is_idea_message(message.content):
-            self.ideas.append({"guild_id": message.guild.id, "channel_id": message.channel.id, "message_id": message.id})
-            save_json(IDEA_SAVES, self.ideas)
+            await self.bot.db.execute("INSERT INTO Ideas (guild_id, channel_id, message_id) VALUES (?, ?, ?)", (message.guild.id, message.channel.id, message.id))
+            await self.bot.db.commit()
 
     @commands.command()
     async def idea(self, ctx):
         """Get a random idea."""
         while True:
-            i = random.randrange(len(self.ideas))
-            m = self.ideas[i]
+            async with self.bot.db.execute("SELECT rowid FROM Ideas") as cur:
+                rowid, = random.choice(await cur.fetchall())
+            async with self.bot.db.execute("SELECT * FROM Ideas WHERE rowid = ?", (rowid,)) as cur:
+                m = await cur.fetchone()
             try:
                 msg = await self.bot.get_guild(m["guild_id"]).get_channel(m["channel_id"]).fetch_message(m["message_id"])
             except discord.HTTPException:
-                self.ideas.pop(i)
-                continue
-            idea = msg.content
-            if not is_idea_message(idea):
-                self.ideas.pop(i)
+                msg = None
+            if not msg or not is_idea_message(idea := msg.content):
+                await self.bot.db.execute("DELETE FROM Ideas WHERE rowid = ?", (rowid,))
                 continue
             if idea.endswith("idea:"):
                 idea_extra = None

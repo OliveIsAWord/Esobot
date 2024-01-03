@@ -8,7 +8,7 @@ import traceback
 
 from unidecode import unidecode
 
-from constants import colors, emoji, paths
+from constants import colors, emoji
 
 
 l = logging.getLogger("bot")
@@ -234,13 +234,3 @@ async def show_error(ctx, message, title="Error"):
         embed=make_embed(title=title, description=message, color=colors.EMBED_ERROR)
     )
     raise ShowErrorException()
-
-
-def load_json(name):
-    with open(paths.CONFIG_FOLDER + "/" + name) as f:
-        return json.load(f)
-
-
-def save_json(name, data):
-    with open(paths.CONFIG_FOLDER + "/" + name, "w+") as f:
-        json.dump(data, f)

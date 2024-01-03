@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import asyncio
+import aiohttp
+import aiosqlite
 import discord
 import logging
 import sys
@@ -8,7 +10,7 @@ import traceback
 import os
 
 from cogs import get_extensions
-from constants import colors, info, paths
+from constants import colors, info
 from discord.ext import commands
 from utils import l, make_embed, report_error, ShowErrorException
 
@@ -23,12 +25,8 @@ except IOError:
     print("Create a file token.txt and place the bot token in it.")
     exit(1)
 
-if not os.path.exists(paths.CONFIG_FOLDER):
-    os.makedirs(paths.CONFIG_FOLDER)
-for file in paths.SAVE_FILES:
-    if not os.path.exists(paths.CONFIG_FOLDER + "/" + file):
-        with open(paths.CONFIG_FOLDER + "/" + file, "w") as f:
-            f.write(paths.SAVE_FILES[file])
+if not os.path.exists("config"):
+    os.mkdir("config")
 
 
 if info.DEV:
@@ -159,7 +157,22 @@ async def load_extensions():
             continue
         bot.loaded_extensions.add(extension)
     l.info("Loaded all extensions")
-bot.setup_hook = load_extensions
+
+async def setup():
+    bot.loop.create_task(load_extensions())
+    bot.session = aiohttp.ClientSession(loop=bot.loop, headers={"User-Agent": info.NAME})
+    db = await aiosqlite.connect("config/the.db")
+    db.row_factory = aiosqlite.Row
+    await db.execute("PRAGMA foreign_keys = ON")
+
+    with open("schema.sql") as f:
+        script = f.read()
+    #await db.executescript(script)
+    await db.commit()
+
+    bot.db = db
+
+bot.setup_hook = setup
 
 async def wait_until_loaded():
     while bot.needed_extensions < bot.loaded_extensions:

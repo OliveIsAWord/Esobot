@@ -4,8 +4,8 @@ from discord.ext import commands
 from ahocorasick import Automaton
 
 import re
-from constants import colors, paths, channels
-from utils import make_embed, load_json, save_json, show_error
+from constants import colors, channels
+from utils import make_embed, show_error
 
 
 d = requests.get("https://gist.githubusercontent.com/Vexs/629488c4bb4126ad2a9909309ed6bd71/raw/edd5473221f42ea0f8b9de16545b4b853bf11140/emoji_map.json").json()
@@ -42,10 +42,6 @@ class ReactionRoles(commands.Cog, name="Reaction roles"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.messages = load_json(paths.REACTION_ROLE_SAVES)
-
-    def save(self):
-        save_json(paths.REACTION_ROLE_SAVES, self.messages)
 
     async def scan(self, msg, *, content=None, channel_id=None):
         msg_id = msg.id
@@ -71,9 +67,8 @@ class ReactionRoles(commands.Cog, name="Reaction roles"):
         if not guild.me.guild_permissions.manage_roles:
             errors.append("I don't have the Manage Roles permission.")
 
-
-        old_data = self.messages.get(str(msg_id))
-        old_pairs = old_data and old_data["pairs"]
+        async with self.bot.db.execute("SELECT emoji, role_id FROM ReactionRolePairs WHERE message_id = ?", (msg_id,)) as cur:
+            old_pairs = dict(await cur.fetchall())
         if pairs != old_pairs:
             current_emoji = list(old_pairs) if old_pairs else []
             target_emoji = list(pairs)
@@ -87,11 +82,11 @@ class ReactionRoles(commands.Cog, name="Reaction roles"):
                 await msg.add_reaction(emoji)
 
             if channel_id:
-                self.messages[str(msg_id)] = {"origin": channel_id, "pairs": pairs}
-            else:
-                # this errors if there isn't already an entry, but this should never happen as we always pass channel_id when adding a new message
-                self.messages[str(msg_id)]["pairs"] = pairs
-            self.save()
+                await self.bot.db.execute("INSERT INTO ReactionRoleMessages (message_id, origin_channel) VALUES (?, ?)", (msg_id, channel_id))
+            await self.bot.db.execute("DELETE FROM ReactionRolePairs WHERE message_id = ?", (msg_id,))
+            for x, y in pairs.items():
+                await self.bot.db.execute("INSERT INTO ReactionRolePairs (message_id, emoji, role_id) VALUES (?, ?, ?)", (msg_id, x, y))
+            await self.bot.db.commit()
             lines = [f"- {emoji}: <@&{role}>" for emoji, role in pairs.items()] if pairs else ["No reactions configured."]
             if errors:
                 lines.append("")
@@ -115,28 +110,37 @@ class ReactionRoles(commands.Cog, name="Reaction roles"):
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload):
         msg_id = payload.message_id
-        if data := self.messages.get(str(msg_id)):
-            guild = self.bot.get_guild(payload.guild_id)
-            p = discord.PartialMessage(id=msg_id, channel=guild.get_channel(payload.channel_id))
-            msg = await self.scan(p, content=payload.data["content"])
-            if msg:
-                channel = guild.get_channel(data["origin"])
-                await channel.send(f"Detected changes to <https://discord.com/channels/{payload.guild_id}/{payload.channel_id}/{msg_id}>.\n\n{msg}", allowed_mentions=discord.AllowedMentions.none())
+        async with self.bot.db.execute("SELECT origin_channel FROM ReactionRoleMessages WHERE message_id = ?", (msg_id,)) as cur:
+            origin = await cur.fetchone()
+        if not origin:
+            return
+        guild = self.bot.get_guild(payload.guild_id)
+        p = discord.PartialMessage(id=msg_id, channel=guild.get_channel(payload.channel_id))
+        msg = await self.scan(p, content=payload.data["content"])
+        if msg:
+            channel = guild.get_channel(origin[0])
+            await channel.send(f"Detected changes to <https://discord.com/channels/{payload.guild_id}/{payload.channel_id}/{msg_id}>.\n\n{msg}", allowed_mentions=discord.AllowedMentions.none())
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload):
-        self.messages.pop(str(payload.message_id), None)
-        self.save()
+        await self.bot.db.execute("DELETE FROM ReactionRoleMessages WHERE message_id = ?", (payload.message_id,))
+        await self.bot.db.commit()
 
     async def dry(self, method, payload):
-        if data := self.messages.get(str(payload.message_id)):
-            guild = self.bot.get_guild(payload.guild_id)
-            role = guild.get_role(data["pairs"][str(payload.emoji)])
-            try:
-                await method(guild.get_member(payload.user_id), role)
-            except discord.Forbidden:
-                channel = guild.get_channel(data["origin"])
-                await channel.send(f"I tried to change the role '{role.name}' on {payload.member}, but I don't have permission.")
+        msg_id = payload.message_id
+        async with self.bot.db.execute("SELECT role_id FROM ReactionRolePairs WHERE message_id = ? AND emoji = ?", (msg_id, str(payload.emoji))) as cur:
+            role_id = await cur.fetchone()
+        if not role_id:
+            return
+        guild = self.bot.get_guild(payload.guild_id)
+        role = guild.get_role(role_id[0])
+        try:
+            await method(guild.get_member(payload.user_id), role)
+        except discord.Forbidden:
+            async with self.bot.db.execute("SELECT origin_channel FROM ReactionRoleMessages WHERE message_id = ?", (msg_id,)) as cur:
+                origin, = await cur.fetchone()
+            channel = guild.get_channel(origin)
+            await channel.send(f"I tried to change the role '{role.name}' on {payload.member}, but I don't have permission.")
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):

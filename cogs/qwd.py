@@ -10,8 +10,7 @@ from discord.ext import commands
 from pint import UnitRegistry, UndefinedUnitError, DimensionalityError, formatting
 from typing import Optional, Union
 
-from utils import save_json, load_json, get_pronouns, EmbedPaginator
-from constants.paths import QWD_SAVES, QWD_LEADERBOARDS, QWD_LB_ALIASES
+from utils import get_pronouns, EmbedPaginator
 
 
 ureg = UnitRegistry(autoconvert_offset_to_baseunit=True)
@@ -176,6 +175,9 @@ class LeaderboardParser:
 def parse_leaderboard(text):
     return LeaderboardParser(text).rule()
 
+def calc_value(row):
+    return parse_leaderboard(row["main_unit"]).ureq(row["datum"])
+
 async def accept_leaderboard(ctx, definition, *, compat=None):
     try:
         lb = parse_leaderboard(definition)
@@ -219,10 +221,13 @@ def render_graph(member_values):
 # evil
 class LeaderboardConv(commands.Converter):
     async def convert(self, ctx, argument):
-        x = ctx.bot.get_cog("QWD").leaderboards.get(argument)
-        if not x:
+        async with ctx.bot.db.execute("SELECT definition, NULL FROM Leaderboards WHERE name = ?1 UNION SELECT definition, source FROM LeaderboardAliases WHERE name = ?1", (argument,)) as cur:
+            defn = await cur.fetchone()
+        if not defn:
             raise commands.BadArgument("leaderboard doesn't exist :(")
-        x.name = argument
+        x = parse_leaderboard(defn[0])
+        x.name = defn[1] or argument
+        x.display_name = argument
         return x
 
 
@@ -231,14 +236,7 @@ class Qwd(commands.Cog, name="QWD"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.qwdies = defaultdict(dict, load_json(QWD_SAVES))
-        self.leaderboards = {k: parse_leaderboard(v) for k, v in load_json(QWD_LEADERBOARDS).items()}
-        self.aliases = load_json(QWD_LB_ALIASES)
         self.qwd = None
-
-    def save_leaderboards(self):
-        save_json(QWD_LEADERBOARDS, {k: str(v) for k, v in self.leaderboards.items()})
-        save_json(QWD_LB_ALIASES, self.aliases)
 
     def cog_check(self, ctx):
         if not self.qwd:
@@ -250,39 +248,30 @@ class Qwd(commands.Cog, name="QWD"):
     async def dox(self, ctx, *, target: discord.Member):
         """Reveal someone's address if they have set it through the bot. Must be used in a guild; the answer will be DMed to you."""
         p = get_pronouns(target)
-        if not (addr := self.qwdies[str(target.id)].get("address")):
+        async with self.bot.db.execute("SELECT address FROM Addresses WHERE user_id = ?", (target.id,)) as cur:
+            r = await cur.fetchone()
+        if not r:
             return await ctx.send(f'{p.they_do_not()} have an address set.')
-        await ctx.author.send(addr)
+        await ctx.author.send(r[0])
         await ctx.send(f"Alright, I've DMed you {p.pos_det} address.")
 
     @dox.command(name="set")
     @commands.dm_only()
-    async def set_dox(self, ctx, *, address=""):
+    async def set_dox(self, ctx, *, address=None):
         """Set your address to be doxxed by others. Must be used in a DM with the bot. You can clear your address by using `set` without an argument."""
-        self.qwdies[str(ctx.author.id)]["address"] = address
-        save_json(QWD_SAVES, self.qwdies)
-        if not address:
-            await ctx.send("Successfully cleared your address.")
-        else:
+        if address:
+            await self.bot.db.execute("INSERT OR REPLACE INTO Addresses (user_id, address) VALUES (?, ?)", (ctx.author.id, address))
             await ctx.send("Successfully set your address.")
+        else:
+            await self.bot.db.execute("DELETE FROM Addresses WHERE user_id = ?", (ctx.author.id,))
+            await ctx.send("Successfully cleared your address.")
+        await self.bot.db.commit()
 
-    def true_key(self, key):
-        return self.aliases.get(key, key)
-
-    def data(self, member):
-        return self.qwdies[str(member.id)].setdefault("lb", {})
-
-    def ureq_of(self, member, lb):
-        d = self.data(member).get(self.true_key(lb.name))
-        if d is None:
-            return None
-        if isinstance(d, str):
-            return lb.ureq(d)
-        return parse_leaderboard(d["form"]).ureq(d["value"])
-
-    def lb_members(self, lb, *, reverse=False):
+    async def lb_members(self, lb, *, reverse=False):
+        async with self.bot.db.execute("SELECT user_id, datum, main_unit FROM LeaderboardData WHERE leaderboard = ?", (lb.name,)) as cur:
+            r = [(calc_value(row), member) async for row in cur if (member := self.qwd.get_member(row["user_id"]))]
         return rank_enumerate(
-            ((value, member) for member in self.qwd.members if (value := self.ureq_of(member, lb)) is not None),
+            r,
             key=lambda x: x[0],
             reverse=lb.asc == reverse,
         )
@@ -291,42 +280,45 @@ class Qwd(commands.Cog, name="QWD"):
     async def leaderboard(self, ctx, lb: LeaderboardConv):
         """Show a leaderboard, given its name."""
         entries = []
-        for i, (value, user) in self.lb_members(lb):
+        for i, (value, user) in await self.lb_members(lb):
             entries.append(rf"{i}\. {user.global_name or user.name} - {lb.format(value)}")
-        embed = discord.Embed(title=f"The `{lb.name}` leaderboard", colour=discord.Colour(0x75ffe3), description="\n".join(entries))
+        embed = discord.Embed(title=f"The `{lb.display_name}` leaderboard", colour=discord.Colour(0x75ffe3), description="\n".join(entries))
         if not entries:
             embed.set_footer(text="Seems to be empty")
         await ctx.send(embed=embed)
 
     @leaderboard.command()
-    async def get(self, ctx, lb: LeaderboardConv, *, member: discord.Member):
+    async def get(self, ctx, lb: LeaderboardConv, *, member: discord.Member = None):
         """Get a specific person's number on a leaderboard."""
-        value = self.ureq_of(member or ctx.author, lb)
+        member = member or ctx.author
         p = get_pronouns(member)
-        if not value:
+        async with self.bot.db.execute("SELECT datum, main_unit FROM LeaderboardData WHERE user_id = ? AND leaderboard = ?", (member.id, lb.name)) as cur:
+            r = await cur.fetchone()
+        if not r:
             return await ctx.send(f'{p.they_do_not()} have an entry in `{lb.name}`.')
-        await ctx.send(embed=discord.Embed(title=f"{member.global_name or member.name}'s `{lb.name}`", description=lb.format(value), colour=discord.Colour(0x75ffe3)))
+        await ctx.send(embed=discord.Embed(title=f"{member.global_name or member.name}'s `{lb.display_name}`", description=lb.format(calc_value(r)), colour=discord.Colour(0x75ffe3)))
 
     @leaderboard.command()
     async def set(self, ctx, lb: LeaderboardConv, *, value=None):
-        """Play nice. Don't you fucking test me."""
-        data = self.data(ctx.author)
-        name = self.true_key(lb.name)
+        """Play nice. Don't test me."""
         if not value:
-            if data.pop(name, None):
-                save_json(QWD_SAVES, self.qwdies)
-                return await ctx.send("Done.")
-            else:
-                return await ctx.send("Nothing to do.")
+            await self.bot.db.execute("DELETE FROM LeaderboardData WHERE user_id = ? AND leaderboard = ?", (ctx.author.id, lb.name))
+            await self.bot.db.commit()
+            return await ctx.send("Done.")
         try:
             nice = lb.ureq(value)
         except (TokenError, UndefinedUnitError):
             return await ctx.send("I couldn't parse that as a sensible value.")
         except DimensionalityError:
             return await ctx.send(f"Unit mismatch: your unit is incompatible with the leaderboard's unit '{lb.main.unit:Pc}'.")
-        data[name] = {"value": value, "form": lb.lean()}
-        save_json(QWD_SAVES, self.qwdies)
+        await self.bot.db.execute("INSERT OR REPLACE INTO LeaderboardData (user_id, leaderboard, datum, main_unit) VALUES (?, ?, ?, ?)", (ctx.author.id, lb.name, value, lb.lean()))
+        await self.bot.db.commit()
         await ctx.send(f"Okay, your value will display as {lb.format(nice)}.")
+
+    async def leaderboard_exists(self, name):
+        async with self.bot.db.execute("SELECT EXISTS(SELECT 1 FROM Leaderboards WHERE name = ?1 UNION SELECT 1 FROM LeaderboardAliases WHERE name = ?1)", (name,)) as cur:
+            r, = await cur.fetchone()
+        return r
 
     @leaderboard.command(aliases=["new", "add", "make"])
     async def create(self, ctx, name="", *, definition=""):
@@ -356,60 +348,52 @@ class Qwd(commands.Cog, name="QWD"):
         That's it! Now you know about all of `create`'s formatting features and how they can be used to make convenient leaderboards. Remember once again to be VERY careful with this command.
         """
         if not name or not definition:
-            return await ctx.send("No definition provided. **Please** read the text of `!help lb create` in full to learn how to use this command. Do not use it lightly; created leaderboards cannot be removed again without LyricLy. And she will *not* like helping you, no matter how much you think she will.")
-        if name in self.leaderboards:
-            return await ctx.send("Look at you. You're so cute, trying to do that. This leaderboard already exists.")
+            return await ctx.send("No definition provided. **Please** read the text of `!help lb create` in full to learn how to use this command. Refrain from using it lightly, as only LyricLy can remove leaderboards. And she will *not* like helping you. I promise.")
+        if await self.leaderboard_exists(name):
+            return await ctx.send("Aww, look at you! You should see how cute you look. Trying to harness forces you don't understand. This leaderboard already exists, you know?")
         lb = await accept_leaderboard(ctx, definition)
-        self.leaderboards[name] = lb
-        self.save_leaderboards()
+        await self.bot.db.execute("INSERT INTO Leaderboards (name, definition) VALUES (?, ?)", (name, str(lb)))
+        await self.bot.db.commit()
         await ctx.send(f"Successfully created a new ``{name}`` leaderboard: ``{lb}``. You'd better not regret this. You can edit this leaderboard at any time.")
 
     @leaderboard.command(aliases=["link", "point", "ln"])
     async def alias(self, ctx, to_lb: LeaderboardConv, fro: str, *, definition=None):
         """Create a new alias to another leaderboard. You may specify a new way to format the values; the default is to use the formatting of the source leaderboard."""
-        if fro in self.leaderboards:
-            return await ctx.send("Very funny. That name is taken.")
+        if await self.leaderboard_exists(fro):
+            return await ctx.send("^w^\n\nName taken.")
         from_lb = await accept_leaderboard(ctx, definition, compat=to_lb) if definition else to_lb
-        self.leaderboards[fro] = from_lb
-        self.aliases[fro] = self.true_key(to_lb.name)
-        self.save_leaderboards()
+        await self.bot.db.execute("INSERT INTO LeaderboardAliases (name, definition, source) VALUES (?, ?, ?)", (fro, str(from_lb), to_lb.name))
+        await self.bot.db.commit()
         await ctx.send(f"Successfully created a new alias ``{fro}`` -> ``{to_lb.name}``: ``{from_lb}``. You can edit or delete this alias at any time.")
 
     @leaderboard.command(aliases=["delete"])
     async def remove(self, ctx, lb: LeaderboardConv):
-        """Remove a leaderboard alias."""
-        if not self.aliases.pop(lb.name, None):
-            if ctx.author.id != 319753218592866315:
-                return await ctx.send("You can't remove a leaderboard that isn't an alias.")
-            else:
-                remove = []
-                for k, v in self.aliases.items():
-                    if v == lb.name:
-                        remove.append(k)
-                        self.leaderboards.pop(k)
-                for k in remove:
-                    self.aliases.pop(k)
-                for v in self.qwdies.values():
-                    v.get("lb", {}).pop(lb.name, None)
-                save_json(QWD_SAVES, self.qwdies)
-        self.leaderboards.pop(lb.name)
-        self.save_leaderboards()
+        """Remove a leaderboard (as LyricLy) or leaderboard alias."""
+        lyric = ctx.author.id == 319753218592866315
+        if lyric:
+            await self.bot.db.execute("DELETE FROM Leaderboards WHERE name = ?", (lb.display_name,))
+        async with self.bot.db.execute("DELETE FROM LeaderboardAliases WHERE name = ?", (lb.display_name,)) as cur:
+            if not cur.rowcount and not lyric:
+                return await ctx.send("You're but a little kitty and can only delete aliases, not full leaderboards. Come back when you're a bit bigger.")
+        await self.bot.db.commit()
         await ctx.send("Done.")
 
     @leaderboard.command(aliases=["modify", "update", "replace"])
     async def edit(self, ctx, old: LeaderboardConv, *, definition):
         """Edit a leaderboard's formatting definition."""
         new = await accept_leaderboard(ctx, definition, compat=old)
-        self.leaderboards[old.name] = new
-        self.save_leaderboards()
+        await self.bot.db.execute("UPDATE Leaderboards SET definition = ? WHERE name = ?", (str(new), old.display_name))
+        await self.bot.db.execute("UPDATE LeaderboardAliases SET definition = ? WHERE name = ?", (str(new), old.display_name))
+        await self.bot.db.commit()
         await ctx.send("Done.")
 
     @leaderboard.command(aliases=["list"])
     async def all(self, ctx):
         """List all of the leaderboards."""
         paginator = EmbedPaginator()
-        for name, lb in self.leaderboards.items():
-            paginator.add_line(f"`{name}`: `{lb}`")
+        async with self.bot.db.execute("SELECT name, definition FROM Leaderboards") as cur:
+            async for name, lb in cur:
+                paginator.add_line(f"`{name}`: `{lb}`")
         paginator.embeds[0].title = "All leaderboards"
         for embed in paginator.embeds:
             await ctx.send(embed=embed)
@@ -417,7 +401,7 @@ class Qwd(commands.Cog, name="QWD"):
     @leaderboard.command()
     async def graph(self, ctx, lb: LeaderboardConv):
         """Graph a (somewhat humorous) ranking of people's values in a leaderboard such as `height`."""
-        people = [(value.m, user, await user.avatar.read()) for _, (value, user) in self.lb_members(lb, reverse=True)]
+        people = [(value.m, user, await user.avatar.read()) for _, (value, user) in await self.lb_members(lb, reverse=True)]
         if not people:
             return await ctx.send("A leaderboard must have at least one person on it to use `graph`.")
         image = await asyncio.to_thread(render_graph, people)
@@ -429,9 +413,11 @@ class Qwd(commands.Cog, name="QWD"):
         target = target or ctx.author
         if isinstance(target, discord.Member):
             p = get_pronouns(target)
-            location = self.qwdies[str(target.id)].get("weather")
-            if not location:
+            async with self.bot.db.execute("SELECT location FROM WeatherLocations WHERE user_id = ?", (target.id,)) as cur:
+                r = await cur.fetchone()
+            if not r:
                 return await ctx.send(f"{p.they_do_not()} have a location set." if target != ctx.author else "You don't have a location set.")
+            location, = r
         else:
             location = target
 
@@ -467,12 +453,13 @@ class Qwd(commands.Cog, name="QWD"):
             if resp.status >= 400:
                 return await ctx.send("Unknown location. See the [wttr documentation](<https://wttr.in/:help>).")
 
-        self.qwdies[str(ctx.author.id)]["weather"] = location
-        save_json(QWD_SAVES, self.qwdies)
         if not location:
+            await self.bot.db.execute("DELETE FROM WeatherLocations WHERE user_id = ?", (ctx.author.id,))
             await ctx.send("Successfully cleared your location.")
         else:
+            await self.bot.db.execute("INSERT OR REPLACE INTO WeatherLocations (user_id, location) VALUES (?, ?)", (ctx.author.id, location))
             await ctx.send("Successfully set your location.")
+        await self.bot.db.commit()
 
     @commands.Cog.listener()
     async def on_message(self, message):

@@ -1,4 +1,3 @@
-import aiohttp
 import socket
 import urllib.parse
 
@@ -12,8 +11,6 @@ class Esolangs(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        if not hasattr(bot, "session"):
-            bot.session = aiohttp.ClientSession(loop=bot.loop, headers={"User-Agent": info.NAME}, connector=aiohttp.TCPConnector(family=socket.AF_INET))
 
     @commands.command(aliases=["ew", "w", "wiki"])
     async def esowiki(self, ctx, *, esolang_name):
