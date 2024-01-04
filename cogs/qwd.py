@@ -494,7 +494,7 @@ class Qwd(commands.Cog, name="QWD"):
         # however this is a trade-off for making it incredibly cheap to grab a message because we don't have to spam history calls or store any data
         t = base + datetime.timedelta(milliseconds=random.randint(0, int((datetime.datetime.utcnow() - base).total_seconds() * 1000)))
         async for message in channel.history(before=t):
-            if message.content and len(message.content) >= 30 and message.author in ctx.guild.members:
+            if message.content and message.content.count(" ") > 3 and message.author in ctx.guild.members:
                 break
 
         embed = make_embed(
