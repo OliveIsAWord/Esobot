@@ -538,8 +538,8 @@ class Qwd(commands.Cog, name="QWD"):
         embed = discord.Embed(title="`hwdyk msg` statistics", colour=discord.Colour(0x6b32a8))
 
         if not member:
-            def rank(rs):
-                return list(rank_enumerate(rs, key=lambda r: r["correct"] / r["total"]))
+            def key(r):
+                return r["correct"] / r["total"]
 
             def render(rs):
                 l = []
@@ -550,13 +550,12 @@ class Qwd(commands.Cog, name="QWD"):
                 return "\n".join(l)
 
             async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total >= 35") as cur:
-                embed.add_field(name="Best players", value=render(rank(await cur.fetchall())))
+                embed.add_field(name="Best players", value=render(rank_enumerate(await cur.fetchall(), key=key)))
 
             async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total >= 20") as cur:
-                hardest = rank(await cur.fetchall())
-                easiest = hardest[::-1]
-                embed.add_field(name="Hardest to guess", value=render(hardest))
-                embed.add_field(name="Easiest to guess", value=render(easiest))
+                items = await cur.fetchall()
+                embed.add_field(name="Hardest to guess", value=render(rank_enumerate(await cur.fetchall(), key=key, reverse=False)))
+                embed.add_field(name="Easiest to guess", value=render(rank_enumerate(await cur.fetchall(), key=key, reverse=True)))
 
             # async with self.bot.db.execute("""
             #     SELECT *, RANK() OVER (ORDER BY total * 1.0 / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.actual = T2.actual) / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.guess = T2.guess) DESC) as rank
