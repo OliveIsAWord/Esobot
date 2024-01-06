@@ -546,7 +546,7 @@ class Qwd(commands.Cog, name="QWD"):
                 for rank, (id, total, correct) in rs:
                     if rank > 5:
                         break
-                    l.append(f"{rank}: <@{id}> ({correct} correct out of {total})")
+                    l.append(f"{rank}: <@{id}> - {correct}/{total} ({correct/total*100:.2f}%)")
                 return "\n".join(l)
 
             async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total >= 35") as cur:
