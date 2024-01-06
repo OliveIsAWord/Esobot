@@ -554,8 +554,8 @@ class Qwd(commands.Cog, name="QWD"):
 
             async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total >= 20") as cur:
                 items = await cur.fetchall()
-                embed.add_field(name="Hardest to guess", value=render(rank_enumerate(await cur.fetchall(), key=key, reverse=False)))
-                embed.add_field(name="Easiest to guess", value=render(rank_enumerate(await cur.fetchall(), key=key, reverse=True)))
+                embed.add_field(name="Hardest to guess", value=render(rank_enumerate(items, key=key, reverse=False)))
+                embed.add_field(name="Easiest to guess", value=render(rank_enumerate(items, key=key, reverse=True)))
 
             # async with self.bot.db.execute("""
             #     SELECT *, RANK() OVER (ORDER BY total * 1.0 / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.actual = T2.actual) / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.guess = T2.guess) DESC) as rank
