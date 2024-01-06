@@ -550,7 +550,7 @@ class Qwd(commands.Cog, name="QWD"):
                 return "\n".join(l)
 
             async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total >= 35") as cur:
-                embed.add_field(name="Best players", value=render(rank_enumerate(await cur.fetchall(), key=key)))
+                embed.add_field(name="Best players", value=render(rank_enumerate(await cur.fetchall(), key=key)), inline=False)
 
             async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total >= 20") as cur:
                 items = await cur.fetchall()
