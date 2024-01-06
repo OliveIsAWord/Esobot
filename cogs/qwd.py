@@ -538,11 +538,11 @@ class Qwd(commands.Cog, name="QWD"):
         embed = discord.Embed(title="`hwdyk msg` statistics", colour=discord.Colour(0x6b32a8))
 
         if not member:
-            async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total > 35") as cur:
+            async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total >= 35") as cur:
                 ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["correct"] / r["total"])
                 embed.add_field(name="Best players", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" for rank, (id, total, correct) in ranked if rank <= 5]))
 
-            async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total > 20") as cur:
+            async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total >= 20") as cur:
                 ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["correct"] / r["total"], reverse=False)
                 embed.add_field(name="Hardest to guess", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" for rank, (id, total, correct) in ranked if rank <= 5]))
 
