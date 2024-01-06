@@ -539,11 +539,11 @@ class Qwd(commands.Cog, name="QWD"):
 
         if not member:
             async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total > 50") as cur:
-                ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["total"] / r["correct"])
+                ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["correct"] / r["total"])
                 embed.add_field(name="Best players", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" for rank, (id, total, correct) in ranked if rank <= 5]))
 
             async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total > 20") as cur:
-                ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["total"] / r["correct"], reverse=False)
+                ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["correct"] / r["total"], reverse=False)
                 embed.add_field(name="Hardest to guess", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" for rank, (id, total, correct) in ranked if rank <= 5]))
 
             # async with self.bot.db.execute("""
