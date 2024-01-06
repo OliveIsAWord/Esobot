@@ -191,7 +191,7 @@ async def accept_leaderboard(ctx, definition, *, compat=None):
         raise commands.BadArgument("Definition is too long.")
     return lb
 
-def rank_enumerate(xs, *, key, reverse):
+def rank_enumerate(xs, *, key, reverse=True):
     cur_idx = None
     cur_key = None
     for idx, x in enumerate(sorted(xs, key=key, reverse=reverse), start=1):
@@ -538,27 +538,13 @@ class Qwd(commands.Cog, name="QWD"):
         embed = discord.Embed(title="`hwdyk msg` statistics", colour=discord.Colour(0x6b32a8))
 
         if not member:
-            async with self.bot.db.execute("""
-                SELECT *, RANK() OVER (ORDER BY correct * 1.0 / total DESC) as rank
-                FROM (
-                    SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames
-                    GROUP BY player_id
-                    HAVING total > 10
-                )
-                ORDER BY rank LIMIT 5
-            """) as cur:
-                embed.add_field(name="Best players", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
+            async with self.bot.db.execute("SELECT player_id, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY player_id HAVING total > 50") as cur:
+                ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["total"] / r["correct"])
+                embed.add_field(name="Best players", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" for rank, (id, total, correct) in ranked]))
 
-            async with self.bot.db.execute("""
-                SELECT *, RANK() OVER (ORDER BY correct * 1.0 / total) as rank
-                FROM (
-                    SELECT actual, COUNT(*) as total, SUM(actual != guessed) as correct FROM HwdykGames
-                    GROUP BY actual
-                    HAVING total > 10
-                )
-                ORDER BY rank LIMIT 5
-            """) as cur:
-                embed.add_field(name="Hardest to guess", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
+            async with self.bot.db.execute("SELECT actual, COUNT(*) as total, SUM(actual = guessed) as correct FROM HwdykGames GROUP BY actual HAVING total > 20") as cur:
+                ranked = rank_enumerate(await cur.fetchall(), key=lambda r: r["total"] / r["correct"], reverse=False)
+                embed.add_field(name="Hardest to guess", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" for rank, (id, total, correct) in ranked]))
 
             # async with self.bot.db.execute("""
             #     SELECT *, RANK() OVER (ORDER BY total * 1.0 / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.actual = T2.actual) / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.guess = T2.guess) DESC) as rank
