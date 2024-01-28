@@ -27,6 +27,14 @@ Each message given to you is by a certain user. They are sent in the format 'use
 """
 HOME_ID = 1201189212507095071
 
+REMINDERS = [
+    {"role": "system", "content": SYSTEM_MESSAGE},
+    {"role": "user", "content": "rottenessie: hey esobot"},
+    {"role": "assistant", "content": "Hey!"},
+    {"role": "user", "content": "LyricLy: lol essie"},
+    {"role": "assistant", "content": "<no response>"},
+]
+
 
 class EsobotPlace(commands.Cog):
     """The source code to the renewed #esobot-place channel on QWD."""
@@ -38,7 +46,7 @@ class EsobotPlace(commands.Cog):
     def reset_thread(self):
         self.t = None
         self.last_message_at = datetime.datetime.now(datetime.timezone.utc)
-        self.messages = [{"role": "user", "content": "hey esobot"}, {"role": "assistant", "content": "Hey!"}, {"role": "user", "content": "lol essie"}, {"role": "assistant", "content": "<no response>"}]
+        self.messages = []
 
     def remember(self, msg):
         self.messages.append({"role": "user", "content": msg})
@@ -46,10 +54,10 @@ class EsobotPlace(commands.Cog):
     async def get_response(self):
         while True:
             try:
-                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=self.messages + [{"role": "system", "content": SYSTEM_MESSAGE}])).choices[0].message
+                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo-16k", messages=self.messages[:-5] + REMINDERS + self.messages[-5:])).choices[0].message
             except BadRequestError:
                 # brain bleed
-                del self.messages[3:len(self.messages)//2]
+                del self.messages[len(self.messages)//2]
             else:
                 break
         t = completion.content.removeprefix("Esobot: ")
