@@ -38,7 +38,7 @@ class EsobotPlace(commands.Cog):
     def reset_thread(self):
         self.t = None
         self.last_message_at = datetime.datetime.now(datetime.timezone.utc)
-        self.messages = [{"role": "system", "content": SYSTEM_MESSAGE}]
+        self.messages = [{"role": "system", "content": SYSTEM_MESSAGE}, {"role": "user", "content": "essie wtf lol"}, {"role": "assistant", "content": "<no response>"}]
 
     def remember(self, msg):
         self.messages.append({"role": "user", "content": msg})
@@ -49,13 +49,14 @@ class EsobotPlace(commands.Cog):
                 completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=self.messages)).choices[0].message
             except BadRequestError:
                 # brain bleed
-                del self.messages[1:len(self.messages)//2]
+                del self.messages[3:len(self.messages)//2]
             else:
                 break
         t = completion.content.removeprefix("Esobot: ")
-        if t != "<no response>":
-            await self.bot.get_channel(HOME_ID).typing()
-            return t
+        if "<no response>" in t:
+            return
+        await self.bot.get_channel(HOME_ID).typing()
+        return t
 
     async def respond(self):
         async with asyncio.TaskGroup() as tg:
