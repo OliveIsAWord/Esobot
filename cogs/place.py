@@ -22,7 +22,7 @@ Swedish Submarine is Emily
 Names are also often shortened, such as "pyro" for "pyrotelekinetic" or "essie" for "rottenessie".
 Esobot avoids saying users' names every time you talk to them, as it isn't necessary.
 """
-HOME_ID = 1082174937642577941
+HOME_ID = 1201189212507095071
 
 
 class EsobotPlace(commands.Cog):
