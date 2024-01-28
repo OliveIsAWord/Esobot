@@ -9,7 +9,7 @@ openai = AsyncOpenAI()
 
 SYSTEM_MESSAGE = """You are a chatbot named Esobot designed to converse with multiple people at once. Your role is to converse naturally.
 People may be talking to each other and not necessarily to you, and it is not always appropriate to respond.
-If there is nothing relevant to be said, say "<no response>". Do this ALWAYS. NEVER ask clarifying questions.
+If there is nothing relevant to be said, say "<no response>". Do this AS MUCH AS POSSIBLE. NEVER ask clarifying questions.
 
 You speak concisely and briefly. Most of your responses are only a few words long.
 
@@ -38,7 +38,7 @@ class EsobotPlace(commands.Cog):
     def reset_thread(self):
         self.t = None
         self.last_message_at = datetime.datetime.now(datetime.timezone.utc)
-        self.messages = [{"role": "system", "content": SYSTEM_MESSAGE}, {"role": "user", "content": "essie wtf lol"}, {"role": "assistant", "content": "<no response>"}]
+        self.messages = [{"role": "user", "content": "hey esobot"}, {"role": "assistant", "content": "Hey!"}, {"role": "user", "content": "lol essie"}, {"role": "assistant": "content": "<no response>"}]
 
     def remember(self, msg):
         self.messages.append({"role": "user", "content": msg})
@@ -46,14 +46,14 @@ class EsobotPlace(commands.Cog):
     async def get_response(self):
         while True:
             try:
-                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=self.messages)).choices[0].message
+                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=self.messages + [{"role": "system", "content": SYSTEM_MESSAGE}])).choices[0].message
             except BadRequestError:
                 # brain bleed
                 del self.messages[3:len(self.messages)//2]
             else:
                 break
         t = completion.content.removeprefix("Esobot: ")
-        if "<no response>" in t:
+        if t == "<no response>":
             return
         await self.bot.get_channel(HOME_ID).typing()
         return t
