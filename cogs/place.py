@@ -38,7 +38,7 @@ class EsobotPlace(commands.Cog):
     def reset_thread(self):
         self.t = None
         self.last_message_at = datetime.datetime.now(datetime.timezone.utc)
-        self.messages = [{"role": "user", "content": "hey esobot"}, {"role": "assistant", "content": "Hey!"}, {"role": "user", "content": "lol essie"}, {"role": "assistant": "content": "<no response>"}]
+        self.messages = [{"role": "user", "content": "hey esobot"}, {"role": "assistant", "content": "Hey!"}, {"role": "user", "content": "lol essie"}, {"role": "assistant", "content": "<no response>"}]
 
     def remember(self, msg):
         self.messages.append({"role": "user", "content": msg})
