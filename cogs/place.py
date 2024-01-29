@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import json
 
 from discord.ext import commands
 from openai import AsyncOpenAI, BadRequestError
@@ -8,21 +7,25 @@ from openai import AsyncOpenAI, BadRequestError
 
 openai = AsyncOpenAI()
 
-SYSTEM_MESSAGE = """You are an agent that simulates a bot called "Esobot" running in a Discord server named QWD (or QVDD). Esobot speaks concisely and briefly. Most of its responses are only a few words long.
+SYSTEM_MESSAGE = """You are a chatbot named Esobot designed to converse with multiple people at once. Your role is to converse naturally.
+People may be talking to each other and not necessarily to you, and it is not always appropriate to respond.
+If there is nothing relevant to be said, say "<no response>". Do this AS MUCH AS POSSIBLE. NEVER ask clarifying questions.
 
-Esobot only responds when people talk to it directly. When people are talking to their other friends, Esobot stays completely silent and does not intervene.
+You speak concisely and briefly. Most of your responses are only a few words long.
 
-The people on the server are referred to as "qwdies".
+You are on a Discord server named "QWD", sometimes also referred to as "QVDD". The people on this server are referred to as "qwdies".
 Treat "name" as a synonym of "username".
-Several people on the server are known by other names. Esobot uses these aliases as much as possible.
+Several people on the server are known by other names. You should use these aliases as much as possible.
 LyricLy is Christina
 ultlang is Emma
 Swedish Submarine is Emily
 🌺🎀p♡mzie🎀🌺is Ari.
 Names are also often shortened, such as "pyro" for "pyrotelekinetic" or "essie" for "rottenessie".
-Esobot avoids saying users' names every time you talk to them, as it isn't necessary.
+Avoid saying users' names every time you talk to them. It's usually not necessary.
 """
 HOME_ID = 1201189212507095071
+
+ALWAYS_REMIND = [{"role": "system", "content": SYSTEM_MESSAGE}]
 
 
 class EsobotPlace(commands.Cog):
@@ -35,47 +38,22 @@ class EsobotPlace(commands.Cog):
     def reset_thread(self):
         self.t = None
         self.last_message_at = datetime.datetime.now(datetime.timezone.utc)
-        self.messages = [{"role": "system", "content": SYSTEM_MESSAGE}]
+        self.messages = []
 
-    def remember(self, msg, *, role="user"):
-        self.messages.append({"role": role, "content": msg})
+    def remember(self, msg):
+        self.messages.append({"role": "user", "content": msg})
 
     async def get_response(self):
-        messages = self.messages.copy()
-        messages[-1] = messages[-1].copy()
-        messages[-1]["content"] += " If you don't understand what's happening, it's best to say nothing. `speak` function"
-
         while True:
             try:
-                completion = (await openai.chat.completions.create(
-                    model="gpt-3.5-turbo-16k",
-                    messages=messages,
-                    tools=[
-                        {
-                            "type": "function",
-                            "function": {
-                                "description": "Use this function when Esobot should speak. Make sure speaking is appropriate before you call it.",
-                                "name": "speak",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "what_to_say": {"type": "string"},
-                                    },
-                                },
-                            },
-                        }
-                    ],
-                )).choices[0].message
+                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=ALWAYS_REMIND + self.messages + ALWAYS_REMIND)).choices[0].message
             except BadRequestError:
                 # brain bleed
                 del self.messages[1:len(self.messages)//2]
             else:
                 break
-        try:
-            t = json.loads(completion.tool_calls[0].function.arguments).get("what_to_say")
-        except json.JSONDecodeError:
-            return
-        if not t:
+        t = completion.content
+        if t == "<no response>":
             return
         await self.bot.get_channel(HOME_ID).typing()
         return t
@@ -85,7 +63,7 @@ class EsobotPlace(commands.Cog):
             r = tg.create_task(self.get_response())
             tg.create_task(asyncio.sleep(2))
         if t := r.result():
-            self.remember(f'Esobot should say "{t}"', role="assistant")
+            self.messages.append({"role": "assistant", "content": t})
             await self.bot.get_channel(HOME_ID).send(t)
 
     @commands.Cog.listener()
@@ -97,7 +75,7 @@ class EsobotPlace(commands.Cog):
             self.reset_thread()
         self.last_message_at = message.created_at
 
-        self.remember(f'The user {message.author.global_name} said, "{message.clean_content}"')
+        self.messages.append({"role": "user", "name": message.author.global_name, "content": message.clean_content})
         if self.t:
             self.t.cancel()
         self.t = self.bot.loop.create_task(self.respond())
