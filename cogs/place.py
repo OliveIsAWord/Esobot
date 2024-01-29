@@ -47,9 +47,12 @@ class EsobotPlace(commands.Cog):
         while True:
             try:
                 completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=ALWAYS_REMIND + self.messages + ALWAYS_REMIND)).choices[0].message
-            except BadRequestError:
-                # brain bleed
-                del self.messages[1:len(self.messages)//2]
+            except BadRequestError as e:
+                if e.code == "context_length_exceeded":
+                    # brain bleed
+                    del self.messages[1:len(self.messages)//2]
+                else:
+                    raise
             else:
                 break
         t = completion.content
