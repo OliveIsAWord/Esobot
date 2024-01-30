@@ -47,7 +47,7 @@ class EsobotPlace(commands.Cog):
     async def get_response(self):
         while True:
             try:
-                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=ALWAYS_REMIND + self.messages + ALWAYS_REMIND)).choices[0].message
+                completion = (await openai.chat.completions.create(model="gpt-3.5-turbo", messages=ALWAYS_REMIND + self.messages)).choices[0].message
             except BadRequestError as e:
                 if e.code == "context_length_exceeded":
                     # brain bleed
@@ -66,8 +66,9 @@ class EsobotPlace(commands.Cog):
         async with asyncio.TaskGroup() as tg:
             r = tg.create_task(self.get_response())
             tg.create_task(asyncio.sleep(2))
-        if t := r.result():
-            self.messages.append({"role": "assistant", "content": t})
+        t = r.result()
+        self.messages.append({"role": "assistant", "content": t if t else "<no response>"})
+        if t:
             await self.bot.get_channel(HOME_ID).send(t)
 
     @commands.Cog.listener()
