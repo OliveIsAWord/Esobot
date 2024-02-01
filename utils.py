@@ -1,12 +1,14 @@
 import asyncio
-import discord
+import re
 import json
 import random
 import string
 import logging
 import traceback
 
+import discord
 from unidecode import unidecode
+from discord.ext import commands
 
 from constants import colors, emoji
 
@@ -152,3 +154,35 @@ async def show_error(ctx, message, title="Error"):
     await ctx.send(
         embed=discord.Embed(title=title, description=message, color=colors.EMBED_ERROR)
     )
+
+NICKNAMES = {
+    "pyro": 261243340752814085,
+    "emma": 354579932837445635,
+    "emily": 269509329298653186,
+    "gnu": 578808799842926592,
+    "olus": 339009650592710656,
+    "hb": 331320482047721472,
+    "lyric": 319753218592866315,
+    "ari": 196391696907501570,
+    "liz": 320947758959820801,
+    "coltrans": 241757436720054273,
+    "sofia": 275982450432147456,
+    "beat": 621813788609347628,
+    "essie": 968170383259873331,
+    "ry": 361263860730036225,
+}
+
+old_convert = commands.MemberConverter.convert
+async def new_convert(self, ctx, argument):
+    try:
+        await old_convert(self, ctx, argument)
+    except commands.MemberNotFound:
+        if not ctx.guild or ctx.guild.id != 1133026989637382144:
+            raise
+        argument = argument.lower()
+        if (id := NICKNAMES.get(argument)) and (m := ctx.guild.get_member(id)):
+            return m
+        if m := discord.utils.find(lambda m: argument in (m.name.lower(), m.global_name.lower() if m.global_name else None, m.display_name.lower()), ctx.guild.members):
+            return m
+        raise
+commands.MemberConverter.convert = new_convert

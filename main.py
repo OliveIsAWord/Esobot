@@ -12,7 +12,7 @@ import os
 from cogs import get_extensions
 from constants import colors, info
 from discord.ext import commands
-from utils import l
+from utils import l, show_error
 
 LOG_LEVEL_API = logging.WARNING
 LOG_LEVEL_BOT = logging.INFO
@@ -43,7 +43,7 @@ try:
 except IOError:
     owner_id = None
 
-COMMAND_PREFIX = "!"
+COMMAND_PREFIX = "!!"
 
 intents = discord.Intents(
     guilds=True,
