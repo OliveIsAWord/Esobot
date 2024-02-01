@@ -87,6 +87,17 @@ class Leaderboard:
     def lean(self):
         return f"{self.main.unit:Pc}"
 
+    @classmethod
+    async def convert(cls, ctx, argument):
+        async with ctx.bot.db.execute("SELECT definition, NULL FROM Leaderboards WHERE name = ?1 UNION SELECT definition, source FROM LeaderboardAliases WHERE name = ?1", (argument,)) as cur:
+            defn = await cur.fetchone()
+        if not defn:
+            raise commands.BadArgument("leaderboard doesn't exist :(")
+        x = parse_leaderboard(defn[0])
+        x.name = defn[1] or argument
+        x.display_name = argument
+        return x
+
 class LeaderboardParser:
     def __init__(self, s):
         self.s = s
@@ -220,18 +231,6 @@ def render_graph(member_values):
     rendered.seek(0)
     return rendered
 
-# evil
-class LeaderboardConv(commands.Converter):
-    async def convert(self, ctx, argument):
-        async with ctx.bot.db.execute("SELECT definition, NULL FROM Leaderboards WHERE name = ?1 UNION SELECT definition, source FROM LeaderboardAliases WHERE name = ?1", (argument,)) as cur:
-            defn = await cur.fetchone()
-        if not defn:
-            raise commands.BadArgument("leaderboard doesn't exist :(")
-        x = parse_leaderboard(defn[0])
-        x.name = defn[1] or argument
-        x.display_name = argument
-        return x
-
 
 class Qwd(commands.Cog, name="QWD"):
     """Commands for QWD."""
@@ -279,7 +278,7 @@ class Qwd(commands.Cog, name="QWD"):
         )
 
     @commands.group(invoke_without_command=True, aliases=["lb"])
-    async def leaderboard(self, ctx, lb: LeaderboardConv):
+    async def leaderboard(self, ctx, lb: Leaderboard):
         """Show a leaderboard, given its name."""
         entries = []
         for i, (value, user) in await self.lb_members(lb):
@@ -290,7 +289,7 @@ class Qwd(commands.Cog, name="QWD"):
         await ctx.send(embed=embed)
 
     @leaderboard.command()
-    async def get(self, ctx, lb: LeaderboardConv, *, member: discord.Member = None):
+    async def get(self, ctx, lb: Leaderboard, *, member: discord.Member = None):
         """Get a specific person's number on a leaderboard."""
         member = member or ctx.author
         p = get_pronouns(member)
@@ -301,7 +300,7 @@ class Qwd(commands.Cog, name="QWD"):
         await ctx.send(embed=discord.Embed(title=f"{member.global_name or member.name}'s `{lb.display_name}`", description=lb.format(calc_value(r)), colour=discord.Colour(0x75ffe3)))
 
     @leaderboard.command()
-    async def set(self, ctx, lb: LeaderboardConv, *, value=None):
+    async def set(self, ctx, lb: Leaderboard, *, value=None):
         """Play nice. Don't test me."""
         if not value:
             await self.bot.db.execute("DELETE FROM LeaderboardData WHERE user_id = ? AND leaderboard = ?", (ctx.author.id, lb.name))
@@ -359,7 +358,7 @@ class Qwd(commands.Cog, name="QWD"):
         await ctx.send(f"Successfully created a new ``{name}`` leaderboard: ``{lb}``. You'd better not regret this. You can edit this leaderboard at any time.")
 
     @leaderboard.command(aliases=["link", "point", "ln"])
-    async def alias(self, ctx, to_lb: LeaderboardConv, fro: str, *, definition=None):
+    async def alias(self, ctx, to_lb: Leaderboard, fro: str, *, definition=None):
         """Create a new alias to another leaderboard. You may specify a new way to format the values; the default is to use the formatting of the source leaderboard."""
         if await self.leaderboard_exists(fro):
             return await ctx.send("^w^\n\nName taken.")
@@ -369,7 +368,7 @@ class Qwd(commands.Cog, name="QWD"):
         await ctx.send(f"Successfully created a new alias ``{fro}`` -> ``{to_lb.name}``: ``{from_lb}``. You can edit or delete this alias at any time.")
 
     @leaderboard.command(aliases=["delete"])
-    async def remove(self, ctx, lb: LeaderboardConv):
+    async def remove(self, ctx, lb: Leaderboard):
         """Remove a leaderboard (as LyricLy) or leaderboard alias."""
         lyric = ctx.author.id == 319753218592866315
         if lyric:
@@ -381,7 +380,7 @@ class Qwd(commands.Cog, name="QWD"):
         await ctx.send("Done.")
 
     @leaderboard.command(aliases=["modify", "update", "replace"])
-    async def edit(self, ctx, old: LeaderboardConv, *, definition):
+    async def edit(self, ctx, old: Leaderboard, *, definition):
         """Edit a leaderboard's formatting definition."""
         new = await accept_leaderboard(ctx, definition, compat=old)
         await self.bot.db.execute("UPDATE Leaderboards SET definition = ? WHERE name = ?", (str(new), old.display_name))
@@ -401,7 +400,7 @@ class Qwd(commands.Cog, name="QWD"):
             await ctx.send(embed=embed)
 
     @leaderboard.command()
-    async def graph(self, ctx, lb: LeaderboardConv):
+    async def graph(self, ctx, lb: Leaderboard):
         """Graph a (somewhat humorous) ranking of people's values in a leaderboard such as `height`."""
         people = [(value.m, user, await user.avatar.read()) for _, (value, user) in await self.lb_members(lb, reverse=True)]
         if not people:
