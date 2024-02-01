@@ -516,7 +516,7 @@ class Qwd(commands.Cog, name="QWD"):
                 break
 
         # insert into stat db
-        await self.bot.db.execute("INSERT INTO HwdykGames (player_id, actual, guessed) VALUES (?, ?, ?)", (ctx.author.id, member.id, message.author.id))
+        await self.bot.db.execute("INSERT INTO HwdykGames (player_id, guessed, actual) VALUES (?, ?, ?)", (ctx.author.id, member.id, message.author.id))
         await self.bot.db.commit()
 
         # reveal info
