@@ -178,7 +178,7 @@ NICKNAMES = {
 old_convert = commands.MemberConverter.convert
 async def new_convert(self, ctx, argument):
     try:
-        await old_convert(self, ctx, argument)
+        return await old_convert(self, ctx, argument)
     except commands.MemberNotFound:
         if not ctx.guild or ctx.guild.id != 1133026989637382144:
             raise
