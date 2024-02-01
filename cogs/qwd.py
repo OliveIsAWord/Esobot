@@ -554,16 +554,6 @@ class Qwd(commands.Cog, name="QWD"):
                 embed.add_field(name="Hardest to guess", value=render(rank_enumerate(items, key=key, reverse=False)))
                 embed.add_field(name="Easiest to guess", value=render(rank_enumerate(items, key=key, reverse=True)))
 
-            # async with self.bot.db.execute("""
-            #     SELECT *, RANK() OVER (ORDER BY total * 1.0 / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.actual = T2.actual) / (SELECT COUNT(*) FROM HwdykGames AS T2 WHERE T1.guess = T2.guess) DESC) as rank
-            #     FROM (
-            #         SELECT actual, guessed, COUNT(*) as total FROM HwdykGames GROUP BY actual, guessed
-            #     ) AS T1
-            #     WHERE total > 10
-            #     ORDER BY rank LIMIT 5
-            # """) as cur:
-            #     embed.add_field(name="Most confused", value="\n".join([f"{rank}: <@{id}> ({correct} correct out of {total})" async for id, total, correct, rank in cur]))
-
         else:
             embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
