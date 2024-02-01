@@ -5,7 +5,7 @@ from ahocorasick import Automaton
 
 import re
 from constants import colors, channels
-from utils import make_embed, show_error
+from utils import show_error
 
 
 d = requests.get("https://gist.githubusercontent.com/Vexs/629488c4bb4126ad2a9909309ed6bd71/raw/edd5473221f42ea0f8b9de16545b4b853bf11140/emoji_map.json").json()

@@ -5,7 +5,6 @@ from typing import Optional
 from PIL import Image, ImageOps
 
 from discord.ext import commands
-from utils import make_embed
 from constants import colors, info, emoji
 
 
@@ -59,26 +58,23 @@ class General(commands.Cog):
     async def about(self, ctx):
         """Information about the bot."""
         await ctx.send(
-            embed=make_embed(
+            embed=discord.Embed(
                 title=f"About {info.NAME}",
                 description=info.ABOUT_TEXT,
-                fields=[
-                    ("Author", f"[{info.AUTHOR}]({info.AUTHOR_LINK})", True),
-                    ("GitHub Repository", info.GITHUB_LINK, True),
-                ],
-                footer_text=f"{info.NAME} v{info.VERSION}",
-            )
+            ).add_field(name="Author", value=f"[{info.AUTHOR}]({info.AUTHOR_LINK})")
+             .add_field(name="GitHub", value=info.GITHUB_LINK)
+             .set_footer(text=f"{info.NAME} v{info.VERSION}")
         )
 
     @commands.command()
     @commands.guild_only()
     async def quote(self, ctx, message: discord.Message):
         """Quote a previous message."""
-        embed = make_embed(
+        embed = discord.Embed(
             description=message.content,
-            timestamp=message.edited_at or message.created_at,
-            footer_text="#" + message.channel.name,
+            timestamp=message.created_at,
         )
+        embed.set_footer(text="#" + message.channel.name)
         embed.set_author(name=message.author.name, icon_url=message.author.display_avatar)
         if message.attachments:
             filename = message.attachments[0].filename

@@ -9,7 +9,7 @@ import itertools
 
 from constants import colors, channels
 from discord.ext import commands, tasks
-from utils import EmbedPaginator, make_embed, clean, show_error, get_pronouns
+from utils import EmbedPaginator, clean, show_error, get_pronouns
 
 
 class Time(commands.Cog):
@@ -44,7 +44,7 @@ class Time(commands.Cog):
                 message = f'{p.they_do_not()} have a timezone set.'
             return await show_error(ctx, message, "Timezone not set")
         time = Time.get_time(t[0])
-        embed = make_embed(
+        embed = discord.Embed(
             title=f"{discord.utils.escape_markdown(user.display_name)}'s time",
             description=time,
             color=colors.EMBED_SUCCESS,
@@ -72,7 +72,7 @@ class Time(commands.Cog):
         await self.update_times()
 
         await ctx.send(
-            embed=make_embed(
+            embed=discord.Embed(
                 title="Set timezone",
                 description=f"Your timezone is now {timezone}.",
                 color=colors.EMBED_SUCCESS,
@@ -90,7 +90,7 @@ class Time(commands.Cog):
         await self.update_times()
 
         await ctx.send(
-            embed=make_embed(
+            embed=discord.Embed(
                 title="Unset timezone",
                 description="Your timezone is now unset.",
                 color=colors.EMBED_SUCCESS,

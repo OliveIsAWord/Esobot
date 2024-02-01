@@ -12,7 +12,7 @@ import os
 from cogs import get_extensions
 from constants import colors, info
 from discord.ext import commands
-from utils import l, make_embed, report_error, ShowErrorException
+from utils import l
 
 LOG_LEVEL_API = logging.WARNING
 LOG_LEVEL_BOT = logging.INFO
@@ -90,11 +90,6 @@ async def on_resumed():
 
 @bot.event
 async def on_command_error(ctx, exc):
-    if isinstance(exc, commands.CommandInvokeError) and isinstance(
-        exc.original, ShowErrorException
-    ):
-        return
-
     command_name = ctx.command.qualified_name if ctx.command else "unknown command"
     if isinstance(exc, commands.UserInputError):
         if isinstance(exc, commands.MissingRequiredArgument):
@@ -132,11 +127,7 @@ async def on_command_error(ctx, exc):
         l.error(
             f"Unknown error encountered while executing '{command_name}'\n" + "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         )
-    await ctx.send(
-        embed=make_embed(
-            color=colors.EMBED_ERROR, title="Error", description=description
-        )
-    )
+    await show_error(ctx, description)
 
 
 @bot.event

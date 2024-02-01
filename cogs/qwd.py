@@ -12,7 +12,7 @@ from discord.ext import commands
 from pint import UnitRegistry, UndefinedUnitError, DimensionalityError, formatting
 from typing import Optional, Union
 
-from utils import get_pronouns, EmbedPaginator, make_embed
+from utils import get_pronouns, EmbedPaginator
 
 
 ureg = UnitRegistry(autoconvert_offset_to_baseunit=True)
@@ -496,10 +496,8 @@ class Qwd(commands.Cog, name="QWD"):
             if message.content and message.content.count(" ") > 3 and message.author in ctx.guild.members:
                 break
 
-        embed = make_embed(
-            description=message.content,
-            footer_text="#??? • ??/??/????",
-        )
+        embed = discord.Embed(description=message.content)
+        embed.set_footer(text="#??? • ??/??/????")
         embed.set_author(name="❓  ???")
         if message.attachments:
             attachment = message.attachments[0]

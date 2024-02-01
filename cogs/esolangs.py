@@ -3,7 +3,7 @@ import urllib.parse
 
 from discord.ext import commands
 from constants import colors, info
-from utils import make_embed
+from utils import show_error
 
 
 class Esolangs(commands.Cog):
@@ -23,13 +23,7 @@ class Esolangs(commands.Cog):
             allow_redirects=False,
         ) as resp:
             if resp.status != 302:
-                return await ctx.send(
-                    embed=make_embed(
-                        color=colors.EMBED_ERROR,
-                        title="Error",
-                        description=f"Page not found.",
-                    )
-                )
+                return await show_error(ctx, "Page not found.")
             f, l = resp.headers["Location"].rsplit("/", 1)
             await ctx.send(f + "/" + l.replace(".", "%2E"))
 

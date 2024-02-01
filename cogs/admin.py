@@ -1,4 +1,5 @@
 import asyncio
+import discord
 import io
 import traceback
 
@@ -6,7 +7,7 @@ from . import get_extensions
 from discord.ext import commands
 from subprocess import PIPE
 from constants import colors, emoji, info
-from utils import l, make_embed, report_error
+from utils import l
 
 
 class Admin(commands.Cog):
@@ -22,7 +23,7 @@ class Admin(commands.Cog):
     async def shutdown(self, ctx):
         """Shut down the bot without asking for confirmation."""
         await ctx.send(
-            embed=make_embed(
+            embed=discord.Embed(
                 color=colors.EMBED_INFO,
                 title="Shutting down..."
             )
@@ -36,7 +37,7 @@ class Admin(commands.Cog):
     async def update(self, ctx):
         """Run `git pull` to update the bot."""
         subproc = await asyncio.create_subprocess_shell("git fetch && git log ..@{u} && git merge", stdout=PIPE, stderr=PIPE)
-        embed = make_embed(color=colors.EMBED_INFO, title="Running `git pull`")
+        embed = discord.Embed(color=colors.EMBED_INFO, title="Running `git pull`")
         m = await ctx.send(embed=embed)
         returncode = await subproc.wait()
         embed.color = colors.EMBED_ERROR if returncode else colors.EMBED_SUCCESS
@@ -70,7 +71,7 @@ class Admin(commands.Cog):
             title = "Reloading extensions"
         else:
             title = f"Reloading `{extensions[0]}`"
-        embed = make_embed(color=colors.EMBED_INFO, title=title)
+        embed = discord.Embed(color=colors.EMBED_INFO, title=title)
         m = await ctx.send(embed=embed)
         color = colors.EMBED_SUCCESS
         description = ""
@@ -86,12 +87,10 @@ class Admin(commands.Cog):
                 description += f"Successfully loaded `{extension}`.\n"
             except Exception as exc:
                 color = colors.EMBED_ERROR
-                description += f"Failed to load `{extension}`.\n"
-                if not isinstance(exc, ImportError):
-                    await report_error(ctx, exc, *extensions)
+                description += f"Failed to load `{extension}`: {exc}\n"
         description += "Done."
         await m.edit(
-            embed=make_embed(
+            embed=discord.Embed(
                 color=color, title=title.replace("ing", "ed"), description=description
             )
         )
