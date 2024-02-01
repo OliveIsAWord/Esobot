@@ -52,20 +52,16 @@ class EsobotPlace(commands.Cog):
                     raise
             else:
                 break
-        t = completion.content
-        if t == "<no response>":
-            return
         await self.bot.get_channel(HOME_ID).typing()
-        return t
+        return completion.content
 
     async def respond(self):
         async with asyncio.TaskGroup() as tg:
             r = tg.create_task(self.get_response())
             tg.create_task(asyncio.sleep(2))
         t = r.result()
-        self.messages.append({"role": "assistant", "content": t if t else "<no response>"})
-        if t:
-            await self.bot.get_channel(HOME_ID).send(t)
+        self.messages.append({"role": "assistant", "content": t})
+        await self.bot.get_channel(HOME_ID).send(t)
 
     @commands.Cog.listener()
     async def on_message(self, message):
