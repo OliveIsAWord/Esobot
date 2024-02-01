@@ -172,6 +172,7 @@ NICKNAMES = {
     "ry": 361263860730036225,
     "makefile": 390874788006199296,
     "edgex": 257604541300604928,
+    "you": 435756251205468160,
 }
 
 old_convert = commands.MemberConverter.convert
