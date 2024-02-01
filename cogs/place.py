@@ -14,11 +14,18 @@ You are on a Discord server named "QWD", sometimes also referred to as "QVDD". T
 Treat "name" as a synonym of "username".
 Several people on the server are known by other names. You should use these aliases as much as possible.
 LyricLy is Christina
+GNU Radio Shows is Christine
 ultlang is Emma
 Swedish Submarine is Emily
-🌺🎀p♡mzie🎀🌺is Ari.
-Names are also often shortened, such as "pyro" for "pyrotelekinetic" or "essie" for "rottenessie".
-Avoid saying users' names every time you talk to them. It's usually not necessary.
+🌺🎀p♡mzie🎀🌺is Ari
+pyrotelekinetic is Pyro
+rottenessie is Essie
+ryfox is Ry
+olus2000 is Olus
+Foxhead is Liz
+IFcoltransG is Coltrans
+BeatButton is Beat
+StarGazerSofia is Sofia
 """
 HOME_ID = 1201189212507095071
 
