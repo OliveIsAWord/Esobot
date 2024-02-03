@@ -79,7 +79,7 @@ class EsobotPlace(commands.Cog):
             self.reset_thread()
         self.last_message_at = message.created_at
 
-        self.messages.append({"role": "user", "name": re.sub(r"[^a-zA-Z0-9_-]+", "", message.author.global_name), "content": message.clean_content})
+        self.messages.append({"role": "user", "name": re.sub(r"[^a-zA-Z0-9_-]+", "", message.author.global_name or message.author.name), "content": message.clean_content})
         if self.t:
             self.t.cancel()
         self.t = self.bot.loop.create_task(self.respond())
