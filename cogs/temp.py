@@ -9,18 +9,6 @@ import discord
 from discord.ext import commands, tasks
 
 
-@commands.check
-def is_in_esolangs(ctx):
-    if ctx.guild.id != 346530916832903169:
-        raise commands.CommandNotFound()
-    return True
-
-@commands.check
-def is_olivia(ctx):
-    if ctx.author.id not in (156021301654454272, 319753218592866315):
-        raise commands.CommandNotFound()
-    return True
-
 class Temporary(commands.Cog):
     """Temporary, seasonal, random and miscellaneous poorly-written functionality. Things in here should probably be developed further or removed at some point."""
 
@@ -73,46 +61,12 @@ class Temporary(commands.Cog):
         if member := ctx.guild.get_member(156021301654454272):
             await self.bot.get_command("time")(ctx, user=member)
 
-    @commands.group(hidden=True, invoke_without_command=True, aliases=["ky", "kay", "k"])
-    async def kaylynn(self, ctx):
-        pass
-
-    @kaylynn.command(name="time", hidden=True)
-    async def _time2(self, ctx):
-        if member := ctx.guild.get_member(636797375184240640):
-            await self.bot.get_command("time")(ctx, user=member)
-
-    @kaylynn.command(hidden=True)
-    async def cute(self, ctx):
-        await ctx.send("yeah!")
-
-    @commands.group(hidden=True, invoke_without_command=True)
-    async def soup(self, ctx):
-        pass
-
-    @soup.command(name="time", hidden=True)
-    @is_in_esolangs
-    @is_olivia
-    async def _time3(self, ctx):
-        await ctx.send("<@636797375184240640> <@309787486278909952> <@319753218592866315> <@224379582785126401> <@166910808305958914> <@275982450432147456> soup time !!")
-
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author == self.bot.user and len(message.content.split(" ")) == 10:
             self.last_10 = message.created_at
         if self.last_10 and message.author.id == 509849474647064576 and len(message.content.split(" ")) == 10 and (message.created_at - self.last_10).total_seconds() < 1.0:
             await message.delete()
-
-        if message.author.id == 319753218592866315 and message.content.count("night") >= 10:
-            msg = ""
-            c = 0
-            for idx, word in enumerate(message.content.split(), start=1):
-                if word == "night":
-                    c += 1
-                else:
-                    msg += f"Word {idx} is misspelled: ``{word}``\n"
-            msg += f"That's {c}."
-            await message.channel.send(msg)
 
         if (parts := message.content.split(" ", 1))[0] == "?chairinfo":
             lines = []
