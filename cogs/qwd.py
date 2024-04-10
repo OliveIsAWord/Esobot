@@ -1,4 +1,5 @@
 import math
+import re
 import datetime
 import random
 import asyncio
@@ -230,6 +231,50 @@ def render_graph(member_values):
     base.save(rendered, format='png')
     rendered.seek(0)
     return rendered
+
+
+def is_permutation_of(length, xs):
+    return set(range(1, length+1)) == set(xs) and len(xs) == length
+
+def to_numbers(s):
+    return [int(x) for x in re.findall("\d+", s)]
+
+def merge(xs, ys, key):
+    inversions = 0
+    i = 0
+    j = 0
+    r = []
+    while i < len(xs) and j < len(ys):
+        if key(xs[i]) > key(ys[j]):
+            r.append(ys[j])
+            inversions += len(xs)-i
+            j += 1
+        else:
+            r.append(xs[i])
+            i += 1
+    r += xs[i:]
+    r += ys[j:]
+    return r, inversions
+
+def sort_inversions(xs, key=lambda x: x):
+    if len(xs) <= 1:
+        return xs, 0
+    split = len(xs)//2
+    left, left_inv = sort_inversions(xs[:split], key)
+    right, right_inv = sort_inversions(xs[split:], key)
+    r, inv = merge(left, right, key)
+    return r, left_inv + right_inv + inv
+
+def message_embed(message):
+    embed = discord.Embed(description=message.content)
+    embed.set_footer(text="#" + message.channel.name)
+    embed.timestamp = message.edited_at or message.created_at
+    embed.set_author(name=message.author.global_name or message.author.name, icon_url=message.author.display_avatar)
+    if message.attachments:
+        attachment = message.attachments[0]
+        if attachment.filename.endswith((".png", ".jpg", ".jpeg")):
+            embed.set_image(url=attachment.url)
+    return embed
 
 
 class Qwd(commands.Cog, name="QWD"):
@@ -480,11 +525,7 @@ class Qwd(commands.Cog, name="QWD"):
         """How well do you know your friends?"""
         pass
 
-    @commands.guild_only()
-    @hwdyk.command(aliases=["msg"])
-    async def message(self, ctx):
-        """Pick a random message. If you can guess who sent it, you win!"""
-
+    async def pick_random_message(self):
         base = datetime.datetime(year=2023, month=7, day=25)
         year = 2023
         channel = self.qwd.get_channel(1133026989637382149 if random.random() < .909 else 1133027144512049223)
@@ -493,18 +534,23 @@ class Qwd(commands.Cog, name="QWD"):
         # however this is a trade-off for making it incredibly cheap to grab a message because we don't have to spam history calls or store any data
         t = base + datetime.timedelta(milliseconds=random.randint(0, int((datetime.datetime.utcnow() - base).total_seconds() * 1000)))
         async for message in channel.history(before=t):
-            if message.content and message.content.count(" ") > 3 and message.author in ctx.guild.members:
+            if message.content and message.content.count(" ") > 3 and message.author in message.guild.members:
                 break
 
-        embed = discord.Embed(description=message.content)
-        embed.set_footer(text="#??? • ??/??/????")
-        embed.set_author(name="❓  ???")
-        if message.attachments:
-            attachment = message.attachments[0]
-            if attachment.filename.endswith((".png", ".jpg", ".jpeg")):
-                embed.set_image(url=attachment.url)
+        return message
 
-        bot_msg = await ctx.reply("Who sent this message?", embed=embed)
+    @commands.guild_only()
+    @hwdyk.group(aliases=["msg"], invoke_without_command=True)
+    async def message(self, ctx):
+        """Pick a random message. If you can guess who sent it, you win!"""
+
+        message = await self.pick_random_message()
+        real_embed = message_embed(message)
+        hidden_embed = real_embed.copy()
+        hidden_embed.set_footer(text="#??? • ??/??/????")
+        hidden_embed.set_author(name="❓  ???")
+        hidden_embed.timestamp = None
+        bot_msg = await ctx.reply("Who sent this message?", embed=hidden_embed)
 
         while True:
             r = await self.bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author)
@@ -520,15 +566,59 @@ class Qwd(commands.Cog, name="QWD"):
         await self.bot.db.commit()
 
         # reveal info
-        embed.set_footer(text="#" + message.channel.name)
-        embed.timestamp = message.edited_at or message.created_at
-        embed.set_author(name=message.author.global_name or message.author.name, icon_url=message.author.display_avatar)
-        await bot_msg.edit(embed=embed)
+        await bot_msg.edit(embed=real_embed)
 
         if member == message.author:
-            await bot_msg.reply("You were correct!")
+            await r.reply("You were correct!")
         else:
-            await bot_msg.reply("Too bad. Good luck with the next time!")
+            await r.reply("Too bad. Good luck with the next time!")
+
+    @commands.guild_only()
+    @message.command(aliases=["time"])
+    async def when(self, ctx, difficulty: int = 4):
+        """Pick some random messages. If you can guess what order they were sent in, you win!""" 
+
+        if not 2 <= difficulty <= 8:
+            return await ctx.send("Difficulty must be between 2 and 8.") 
+
+        msgs = []
+        for _ in range(difficulty):
+            msgs.append(await self.pick_random_message())
+
+        real_embeds = []
+        hidden_embeds = []
+        for idx, msg in enumerate(msgs, start=1):
+            real_embed = message_embed(msg)
+            real_embed.set_footer(text=f"Message {idx} • " + real_embed.footer.text)
+            hidden_embed = real_embed.copy()
+            hidden_embed.set_footer(text=hidden_embed.footer.text + " • ??/??/????")
+            hidden_embed.timestamp = None
+            real_embeds.append(real_embed)
+            hidden_embeds.append(hidden_embed)
+
+        bot_msg = await ctx.reply("In what order were these messages sent?", embeds=hidden_embeds)
+        r = await self.bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author and is_permutation_of(len(msgs), to_numbers(m.content)))
+        guess = [msgs[i-1] for i in to_numbers(r.content)]
+
+        real_embeds.sort(key=lambda e: e.timestamp)
+        await bot_msg.edit(content="The true order.", embeds=real_embeds)
+
+        _, inversions = sort_inversions(guess, key=lambda m: m.created_at)
+        score = 1 - inversions / math.comb(difficulty, 2)
+        if difficulty == 2 and not score:
+            await r.reply("Aww, too bad. Try again next time!")
+        elif difficulty == 2:
+            await r.reply("You got it right! Well done!")
+        elif score == 0.0:
+            await r.reply("Huh. You know you're supposed to put them in *ascending* order, right?")
+        elif score == 1.0:
+            await r.reply("Perfect! Congratulations!")
+        elif inversions == 1:
+            await r.reply("Ouch, just one swap away... Better luck next time?")
+        elif score >= 0.75:
+            await r.reply(f"You were {score*100:.0f}% correct. Not bad.")
+        else:
+            await r.reply(f"You were {score*100:.0f}% correct. Try harder next time.")
 
     @hwdyk.command()
     async def stats(self, ctx, member: discord.Member = None):
