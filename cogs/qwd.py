@@ -614,8 +614,8 @@ class Qwd(commands.Cog, name="QWD"):
         elif score == 1.0:
             await r.reply("Perfect! Congratulations!")
         elif inversions == 1:
-            await r.reply("Ouch, just one swap away... Better luck next time?")
-        elif score >= 0.75:
+            await r.reply("Just one swap away from perfect! Good going.")
+        elif score > 0.5:
             await r.reply(f"You were {score*100:.0f}% correct. Not bad.")
         else:
             await r.reply(f"You were {score*100:.0f}% correct. Try harder next time.")
