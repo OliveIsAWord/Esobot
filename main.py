@@ -44,7 +44,7 @@ try:
 except IOError:
     owner_id = None
 
-COMMAND_PREFIX = "!!"
+COMMAND_PREFIX = "!"
 
 intents = discord.Intents(
     guilds=True,
