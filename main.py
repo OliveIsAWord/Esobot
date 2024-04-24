@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import aiosqlite
 import discord
+import functools
 import logging
 import sys
 import traceback
@@ -43,7 +44,7 @@ try:
 except IOError:
     owner_id = None
 
-COMMAND_PREFIX = "!"
+COMMAND_PREFIX = "!!"
 
 intents = discord.Intents(
     guilds=True,
@@ -64,6 +65,25 @@ bot = commands.Bot(
 bot.owner_id = owner_id
 bot.needed_extensions = set(get_extensions())
 bot.loaded_extensions = set()
+
+
+@functools.wraps(discord.abc.Messageable.send)
+async def send(self, *args, reference=None, **kwargs):
+    try:
+        return await send.__wrapped__(self, *args, reference=reference, **kwargs)
+    except discord.HTTPException as e:
+        if not reference or "In message_reference: Unknown message" not in e.text:
+            raise
+        new_reference = None
+        try:
+            async for msg in self.history(after=reference):
+                if msg.webhook_id and msg.content == reference.content:
+                    new_reference = msg
+                    break
+        except discord.HTTPException:
+            pass
+        return await send.__wrapped__(self, *args, reference=new_reference, **kwargs)
+discord.abc.Messageable.send = send
 
 
 @bot.event
