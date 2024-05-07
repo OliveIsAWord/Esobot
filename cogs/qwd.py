@@ -654,8 +654,12 @@ class Qwd(commands.Cog, name="QWD"):
                 total_total, correct_total = await cur.fetchone()
 
             embed.add_field(name="Times played", value=str(total))
-            embed.add_field(name="Correct answers", value=f"{correct} ({correct/total*100:.2f}%)")
-            embed.set_footer(text=f"Messages by {member.display_name} have appeared {total_total} times and been guessed correctly {correct_total} times ({correct_total/total_total*100:.2f}%)")
+            if total:
+                embed.add_field(name="Correct answers", value=f"{correct} ({correct/total*100:.2f}%)")
+            if not total_total:
+                embed.set_footer(text="No message by {member.display_name} has appeared yet")
+            else:
+                embed.set_footer(text=f"Messages by {member.display_name} have appeared {total_total} times and been guessed correctly {correct_total} times ({correct_total/total_total*100:.2f}%)")
 
         await ctx.send(embed=embed)
 
