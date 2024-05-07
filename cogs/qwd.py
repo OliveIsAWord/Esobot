@@ -621,7 +621,7 @@ class Qwd(commands.Cog, name="QWD"):
             await r.reply(f"You were {score*100:.0f}% correct. Try harder next time.")
 
     @hwdyk.command()
-    async def stats(self, ctx, member: discord.Member = None):
+    async def stats(self, ctx, *, member: discord.Member = None):
         embed = discord.Embed(title="`hwdyk msg` statistics", colour=discord.Colour(0x6b32a8))
 
         if not member:
@@ -657,7 +657,7 @@ class Qwd(commands.Cog, name="QWD"):
             if total:
                 embed.add_field(name="Correct answers", value=f"{correct} ({correct/total*100:.2f}%)")
             if not total_total:
-                embed.set_footer(text="No message by {member.display_name} has appeared yet")
+                embed.set_footer(text=f"No message by {member.display_name} has appeared yet")
             else:
                 embed.set_footer(text=f"Messages by {member.display_name} have appeared {total_total} times and been guessed correctly {correct_total} times ({correct_total/total_total*100:.2f}%)")
 
