@@ -138,7 +138,7 @@ class Japanese(commands.Cog):
             messages = [self._convert_message(m.content, self._urls_of_message(m)) async for m in ctx.history(limit=12)][:0:-1]
 
         completion = await openai.chat.completions.create(
-            model="gpt-4-vision-preview",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": prompt},
                 *messages,
