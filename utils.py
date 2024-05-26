@@ -175,6 +175,7 @@ NICKNAMES = {
     "you": 435756251205468160,
     "peach": 666489957992497182,
     "mat": 199151261604380672,
+    "iso": 559418497734803470,
 }
 
 old_convert = commands.MemberConverter.convert
