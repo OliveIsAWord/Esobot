@@ -353,7 +353,7 @@ class Qwd(commands.Cog, name="QWD"):
             return await ctx.send("Done.")
         try:
             nice = lb.ureq(value)
-        except (TokenError, UndefinedUnitError):
+        except (TokenError, UndefinedUnitError, AssertionError):
             return await ctx.send("I couldn't parse that as a sensible value.")
         except DimensionalityError:
             return await ctx.send(f"Unit mismatch: your unit is incompatible with the leaderboard's unit '{lb.main.unit:Pc}'.")
