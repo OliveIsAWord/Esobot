@@ -73,13 +73,14 @@ class Games(commands.Cog):
 
         async def on_message(message):
             if message.channel == ctx.channel and is_valid(message.content) and not message.author.bot and message.author not in winners:
-                if not winners:
+                first_winner = not winners
+                winners[message.author] = (message.created_at - start.created_at).total_seconds()
+                if first_winner:
                     async def ender():
                         await asyncio.sleep(10)
                         is_ended.set()
                     await ctx.send(f"{message.author.name.replace('@', '@' + zwsp)} wins. Other participants have 10 seconds to finish.")
                     self.bot.loop.create_task(ender())
-                winners[message.author] = (message.created_at - start.created_at).total_seconds()
                 await message.delete()
 
         self.bot.add_listener(on_message)
