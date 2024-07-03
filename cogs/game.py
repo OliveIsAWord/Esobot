@@ -121,6 +121,8 @@ class Games(commands.Cog):
     @commands.guild_only()
     async def sortrace(self, ctx, count: int = 10, max_value: int = 100):
         """Why would you play this?"""
+        if not 1 <= count <= 100:
+            return await ctx.send("Use between 1 and 100 numbers.")
         prompt = [random.randint(0, max_value) for _ in range(count)]
         sorted_prompt = sorted(prompt)
         await self.run_race(ctx, str(prompt), lambda s: [(m := x.strip("[],")).isdigit() and int(m) for x in s.split()] == sorted_prompt)
