@@ -96,8 +96,12 @@ class Temporary(commands.Cog):
                         "ℎ": "ITALIC CHAIR", "ℏ": "ITALIC CHAIR WITH STROKE",
                         "ₕ": "SUBSCRIPT CHAIR", "ʰ": "SUPERSCRIPT CHAIR",
                     }.get(c, "NOT A CHAIR")
-                lines.append(f"`\\U{ord(c):>08x}`: {title} **\N{EM DASH}** {c}")
-            await message.channel.send("\n".join(lines))
+                code_point = ord(c)
+                lines.append(f"[`\\U{code_point:>08x}`](http://www.fileformat.info/info/unicode/char/{code_point:x}): {title} **\N{EM DASH}** {c}")
+            msg = "\n".join(lines)
+            if len(msg) > 2000:
+                return await message.channel.send("Output too long to display.")
+            await message.channel.send(msg, suppress_embeds=True)
 
 async def setup(bot):
     await bot.add_cog(Temporary(bot))
